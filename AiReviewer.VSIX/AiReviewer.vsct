@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+	<Extern href="stdidcmd.h"/>
+	<Extern href="vsshlids.h"/>
+
+	<Commands package="guidAiReviewerPackage">
+		<Groups>
+			<!-- Place group under Tools menu -->
+			<Group guid="guidAiReviewerCmdSet" id="grpAiReviewerTools" priority="0x0100">
+				<Parent guid="guidSHLMainMenu" id="IDM_VS_MENU_TOOLS" />
+			</Group>
+		</Groups>
+
+		<Buttons>
+			<!-- Button inside Tools menu -->
+			<Button guid="guidAiReviewerCmdSet" id="cmdReviewStaged" priority="0x0101" type="Button">
+				<Parent guid="guidAiReviewerCmdSet" id="grpAiReviewerTools" />
+				<CommandFlag>DynamicItemStart</CommandFlag>
+				<Strings>
+					<ButtonText>Review Staged Changes</ButtonText>
+				</Strings>
+			</Button>
+		</Buttons>
+	</Commands>
+
+	<Symbols>
+		<!-- Package GUID -->
+		<GuidSymbol name="guidAiReviewerPackage" value="{BA5749DA-8661-4E2F-9803-BA0FC420ACD6}" />
+		
+		<!-- Command Set GUID -->
+		<GuidSymbol name="guidAiReviewerCmdSet" value="{D27F4BBD-41B9-4B8E-9B40-2D4A48A2B9C7}">
+			<IDSymbol name="grpAiReviewerTools" value="0x0100" />
+			<IDSymbol name="cmdReviewStaged" value="0x0101" />
+		</GuidSymbol>
+		
+		<!-- Built-in Tools Menu GUID -->
+		<GuidSymbol name="guidSHLMainMenu" value="{D309F791-903F-11D0-9EFC-00A0C911004F}">
+			<IDSymbol name="IDM_VS_MENU_TOOLS" value="0x0085" />
+		</GuidSymbol>
+	</Symbols>
+
+</CommandTable>
