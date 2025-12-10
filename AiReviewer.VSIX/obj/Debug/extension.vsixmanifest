@@ -1,8 +1,12 @@
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011">
   <Metadata>
-    <Identity Id="AiReviewer.VSIX.ba5749da-8661-4e2f-9803-ba0fc420acd6" Version="1.0" Language="en-US" Publisher="NNF Hackathon Team" />
-    <DisplayName>AI Reviewer</DisplayName>
-    <Description xml:space="preserve">Review staged changes inside Visual Studio aligned with MerlinBot config</Description>
+    <Identity Id="AiReviewer.VSIX.ba5749da-8661-4e2f-9803-ba0fc420acd6" Version="1.0.0" Language="en-US" Publisher="Ankith Pal" />
+    <DisplayName>AI Code Reviewer</DisplayName>
+    <Description xml:space="preserve">AI-powered code review for staged changes. Get instant feedback on security, performance, reliability, code quality, and best practices. One-click fixes included!</Description>
+    <MoreInfo>https://github.com/ankithkumarpal/Aireviewerextension</MoreInfo>
+    <License>LICENSE.txt</License>
+    <Tags>AI, Code Review, Azure OpenAI, Code Quality, Security, Performance, Git, Static Analysis</Tags>
+    <Preview>true</Preview>
   </Metadata>
   <Installation>
     <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.0, 18.0)">
