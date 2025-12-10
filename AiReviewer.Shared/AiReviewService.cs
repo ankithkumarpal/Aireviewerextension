@@ -172,7 +172,9 @@ namespace AiReviewer.Shared
             sb.AppendLine("- Grammar mistakes in comments (incomplete sentences, wrong tense, unclear phrasing)");
             sb.AppendLine("- Typos in string literals and user-facing messages");
             sb.AppendLine("- Missing comments on complex logic, algorithms, or non-obvious code");
-            sb.AppendLine("- Misleading or outdated comments that don't match the code");
+            sb.AppendLine("- **CRITICAL**: Comments that contradict the actual code logic (e.g., comment says '!=' but code uses '==')");
+            sb.AppendLine("- Comments describing the WRONG condition, branch, or behavior");
+            sb.AppendLine("- Outdated comments from previous implementations that no longer apply");
             sb.AppendLine("- Poorly written comments (unclear, vague, or uninformative)");
             sb.AppendLine("- Missing TODO/FIXME/HACK markers where appropriate");
             sb.AppendLine("- Inconsistent comment style (mix of // and /* */, inconsistent capitalization)");
@@ -183,7 +185,11 @@ namespace AiReviewer.Shared
             sb.AppendLine("3. Variable names: Are they clear and self-documenting?");
             sb.AppendLine("4. Business logic: Does the code make sense? Any logical errors?");
             sb.AppendLine("5. Edge cases: What happens with null, empty, negative, or boundary values?");
-            sb.AppendLine("6. Comments & Documentation: Check spelling, grammar, clarity. Suggest comments for complex code.");
+            sb.AppendLine("6. Comments & Documentation:");
+            sb.AppendLine("   - Check spelling, grammar, clarity");
+            sb.AppendLine("   - **VERIFY comments match the code** (if comment says 'when X != Y' but code checks 'X == Y', flag it!)");
+            sb.AppendLine("   - Read comment, read code, confirm they describe the SAME logic");
+            sb.AppendLine("   - Suggest comments for complex code");
             sb.AppendLine("7. String literals: Check for typos in error messages, user-facing text, log messages.");
             sb.AppendLine();
             sb.AppendLine("=== SEVERITY GUIDELINES ===");
