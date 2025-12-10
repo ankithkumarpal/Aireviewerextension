@@ -13,12 +13,30 @@
 		</Groups>
 
 		<Buttons>
-			<!-- Button inside Tools menu -->
+			<!-- Open Tool Window Button -->
+			<Button guid="guidAiReviewerCmdSet" id="cmdShowToolWindow" priority="0x0100" type="Button">
+				<Parent guid="guidSHLMainMenu" id="IDG_VS_WNDO_OTRWNDWS1" />
+				<CommandFlag>DynamicItemStart</CommandFlag>
+				<Strings>
+					<ButtonText>AI Code Reviewer</ButtonText>
+				</Strings>
+			</Button>
+			
+			<!-- Review Staged Changes Button -->
 			<Button guid="guidAiReviewerCmdSet" id="cmdReviewStaged" priority="0x0101" type="Button">
 				<Parent guid="guidAiReviewerCmdSet" id="grpAiReviewerTools" />
 				<CommandFlag>DynamicItemStart</CommandFlag>
 				<Strings>
 					<ButtonText>Review Staged Changes</ButtonText>
+				</Strings>
+			</Button>
+			
+			<!-- Apply Fix Button -->
+			<Button guid="guidAiReviewerCmdSet" id="cmdApplyFix" priority="0x0102" type="Button">
+				<Parent guid="guidAiReviewerCmdSet" id="grpAiReviewerTools" />
+				<CommandFlag>DynamicItemStart</CommandFlag>
+				<Strings>
+					<ButtonText>Apply AI Fix...</ButtonText>
 				</Strings>
 			</Button>
 		</Buttons>
@@ -30,13 +48,16 @@
 		
 		<!-- Command Set GUID -->
 		<GuidSymbol name="guidAiReviewerCmdSet" value="{D27F4BBD-41B9-4B8E-9B40-2D4A48A2B9C7}">
-			<IDSymbol name="grpAiReviewerTools" value="0x0100" />
+			<IDSymbol name="grpAiReviewerTools" value="0x1000" />
+			<IDSymbol name="cmdShowToolWindow" value="0x0100" />
 			<IDSymbol name="cmdReviewStaged" value="0x0101" />
+			<IDSymbol name="cmdApplyFix" value="0x0102" />
 		</GuidSymbol>
 		
 		<!-- Built-in Tools Menu GUID -->
 		<GuidSymbol name="guidSHLMainMenu" value="{D309F791-903F-11D0-9EFC-00A0C911004F}">
 			<IDSymbol name="IDM_VS_MENU_TOOLS" value="0x0085" />
+			<IDSymbol name="IDG_VS_WNDO_OTRWNDWS1" value="0x0388" />
 		</GuidSymbol>
 	</Symbols>
 

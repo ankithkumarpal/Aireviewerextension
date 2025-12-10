@@ -32,7 +32,7 @@ namespace AiReviewer.Shared
 
     public static class GitDiff
     {
-        public static string FindRepoRoot(string startDirectory = null)
+        public static string FindRepoRoot(string? startDirectory = null)
         {
             try
             {
@@ -59,7 +59,7 @@ namespace AiReviewer.Shared
             var psi = new ProcessStartInfo
             {
                 FileName = "git",
-                Arguments = "diff --cached --unified=0",
+                Arguments = "diff --cached --unified=3",  // Get 3 lines of context
                 WorkingDirectory = repoRoot,
                 RedirectStandardOutput = true,
                 UseShellExecute = false
@@ -78,8 +78,8 @@ namespace AiReviewer.Shared
         public static List<Patch> ParseUnified(string diff)
         {
             var patches = new List<Patch>();
-            Patch current = null;
-            Hunk hunk = null;
+            Patch? current = null;
+            Hunk? hunk = null;
 
             using (var reader = new StringReader(diff))
             {
@@ -93,7 +93,7 @@ namespace AiReviewer.Shared
                         hunk = null;
                         continue;
                     }
-
+                    
                     if (line.StartsWith("@@"))
                     {
                         // Example: @@ -12,0 +12,3 @@
@@ -106,10 +106,10 @@ namespace AiReviewer.Shared
                         continue;
                     }
 
-                    // Only capture added content (ignore context and deletions)
-                    if (line.StartsWith("+") && !line.StartsWith("+++ "))
+                    // Capture context lines (space prefix), added lines (+), but ignore deletions (-)
+                    if (line.StartsWith(" ") || (line.StartsWith("+") && !line.StartsWith("+++ ")))
                     {
-                        hunk?.Lines.Add(line.Substring(1)); // added line content
+                        hunk?.Lines.Add(line); // Keep the prefix to show context vs additions
                     }
                 }
             }

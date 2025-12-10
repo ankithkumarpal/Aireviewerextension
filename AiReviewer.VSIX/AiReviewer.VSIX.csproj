@@ -77,6 +77,21 @@
 		<Compile Include="Properties\AssemblyInfo.cs" />
 		<Compile Include="AiReviewer.VSIXPackage.cs" />
 		<Compile Include="ReviewCommand.cs" />
+		<Compile Include="ApplyFixCommand.cs" />
+		<Compile Include="AiReviewErrorListProvider.cs" />
+		<Compile Include="AiReviewOutputPane.cs" />
+		<Compile Include="CodeFixApplier.cs" />
+		<Compile Include="AiReviewerToolWindow.cs" />
+		<Compile Include="AiReviewerToolWindowControl.xaml.cs">
+			<DependentUpon>AiReviewerToolWindowControl.xaml</DependentUpon>
+		</Compile>
+	</ItemGroup>
+
+	<ItemGroup>
+		<Page Include="AiReviewerToolWindowControl.xaml">
+			<SubType>Designer</SubType>
+			<Generator>MSBuild:Compile</Generator>
+		</Page>
 	</ItemGroup>
 
 	<!-- Visual Studio SDK NuGet packages -->
@@ -94,6 +109,11 @@
 		<Reference Include="System.ComponentModel.Composition" />
 		<Reference Include="System.Design" />
 		<Reference Include="Microsoft.CSharp" />
+		<Reference Include="Microsoft.VisualBasic" />
+		<Reference Include="PresentationCore" />
+		<Reference Include="PresentationFramework" />
+		<Reference Include="System.Xaml" />
+		<Reference Include="WindowsBase" />
 	</ItemGroup>
 
 	<!-- VSIX manifest -->

@@ -1,6 +1,7 @@
 ﻿
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
@@ -12,6 +13,8 @@ namespace AiReviewer.VSIX
 {
     internal static class ReviewCommand
     {
+        private static AiReviewErrorListProvider _errorListProvider;
+
         public static void Execute(object sender, EventArgs e)
         {
             ThreadHelper.JoinableTaskFactory.Run(async () => await RunAsync());
@@ -124,7 +127,7 @@ namespace AiReviewer.VSIX
                 var result = VsShellUtilities.ShowMessageBox(ServiceProvider.GlobalProvider,
                     "Azure OpenAI is not configured.\n\nWould you like to create a sample configuration file?",
                     "AI Reviewer - Configuration Required",
-                    OLEMSGICON.OLEMSGICON_QUESTION,
+                    OLEMSGICON.OLEMSGICON_INFO,
                     OLEMSGBUTTON.OLEMSGBUTTON_YESNO,
                     OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
                 
@@ -156,38 +159,41 @@ namespace AiReviewer.VSIX
                 var aiService = new AiReviewService(aiConfig.AzureOpenAIEndpoint, aiConfig.AzureOpenAIKey, aiConfig.DeploymentName);
                 var results = await aiService.ReviewCodeAsync(patches, cfg);
 
-                // Display results
+                // Set repository path for all results
+                foreach (var result in results)
+                {
+                    result.RepositoryPath = repo;
+                }
+
+                // Show results in Tool Window
+                await ShowToolWindowWithResultsAsync(results);
+
+                // Show quick summary notification
                 if (results.Count == 0)
                 {
-                    VsShellUtilities.ShowMessageBox(ServiceProvider.GlobalProvider,
-                        "✅ No issues found!\n\nYour code looks good.",
-                        "AI Reviewer",
-                        OLEMSGICON.OLEMSGICON_INFO,
-                        OLEMSGBUTTON.OLEMSGBUTTON_OK,
-                        OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+                    System.Windows.MessageBox.Show(
+                        "✅ No issues found!\n\nYour staged changes look good.",
+                        "AI Code Reviewer",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Information);
                 }
                 else
                 {
-                    var summary = $"Found {results.Count} issue(s):\n\n";
                     var highCount = results.Count(r => r.Severity == "High");
                     var mediumCount = results.Count(r => r.Severity == "Medium");
                     var lowCount = results.Count(r => r.Severity == "Low");
                     
+                    var summary = $"Found {results.Count} issue(s) in staged changes:\n\n";
                     if (highCount > 0) summary += $"🔴 High: {highCount}\n";
                     if (mediumCount > 0) summary += $"🟡 Medium: {mediumCount}\n";
                     if (lowCount > 0) summary += $"🟢 Low: {lowCount}\n";
+                    summary += "\n✓ Review results displayed in AI Code Reviewer window.";
                     
-                    summary += "\nCheck the Error List for details.";
-                    
-                    VsShellUtilities.ShowMessageBox(ServiceProvider.GlobalProvider,
+                    System.Windows.MessageBox.Show(
                         summary,
                         "AI Reviewer",
-                        OLEMSGICON.OLEMSGICON_WARNING,
-                        OLEMSGBUTTON.OLEMSGBUTTON_OK,
-                        OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
-                    
-                    // TODO: Display results in Error List window
-                    // We'll implement this in the next step
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Information);
                 }
             }
             catch (Exception ex)
@@ -199,6 +205,39 @@ namespace AiReviewer.VSIX
                     OLEMSGBUTTON.OLEMSGBUTTON_OK,
                     OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
             }
+        }
+
+        private static async Task ShowToolWindowWithResultsAsync(System.Collections.Generic.List<ReviewResult> results)
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            var package = AiReviewerPackage.Instance;
+            if (package == null)
+            {
+                System.Windows.MessageBox.Show(
+                    "Could not access AI Reviewer package.",
+                    "AI Reviewer - Error",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+                return;
+            }
+
+            var window = package.FindToolWindow(typeof(AiReviewerToolWindow), 0, true);
+            if (window?.Frame == null)
+            {
+                System.Windows.MessageBox.Show(
+                    "Could not create tool window.",
+                    "AI Reviewer - Error",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+                return;
+            }
+
+            var windowFrame = (IVsWindowFrame)window.Frame;
+            Microsoft.VisualStudio.ErrorHandler.ThrowOnFailure(windowFrame.Show());
+
+            var control = window.Content as AiReviewerToolWindowControl;
+            control?.ShowResults(results);
         }
     }
 }
