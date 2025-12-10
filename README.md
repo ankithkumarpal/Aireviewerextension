@@ -1,6 +1,6 @@
 # AI Code Reviewer for Visual Studio 2022
 
-🤖 **AI-Powered Code Review** - Get instant, comprehensive code review feedback on your staged changes before you commit!
+**AI-Powered Code Review** - Get instant, comprehensive code review feedback on your staged changes before you commit!
 
 ## Features
 
@@ -106,8 +106,8 @@ MIT License - See LICENSE file for details
 
 ## Hackathon Project
 
-Built for **LIVE+ Network Fabric Hackathon 2025** 🏆
+Built for **LIVE+ Network Fabric Hackathon 2025**
 
 ---
 
-**⭐ If you find this useful, please star the repository!**
+** If you find this useful, please star the repository!**
