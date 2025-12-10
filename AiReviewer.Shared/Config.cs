@@ -9,8 +9,8 @@ namespace AiReviewer.Shared
 
     public sealed class Pattern
     {
-        public string Type { get; set; }      // "metrics" | "roslyn-inspect" | "regex" | "list"
-        public object Value { get; set; }     // shape depends on Type
+        public string Type { get; set; }   // "metrics" | "roslyn-inspect" | "regex" | "list"
+        public object Value { get; set; }  // shape depends on Type
     }
 
     public sealed class Check

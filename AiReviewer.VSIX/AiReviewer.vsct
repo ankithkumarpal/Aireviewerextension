@@ -22,36 +22,24 @@
 				</Strings>
 			</Button>
 			
-			<!-- Review Staged Changes Button -->
-			<Button guid="guidAiReviewerCmdSet" id="cmdReviewStaged" priority="0x0101" type="Button">
-				<Parent guid="guidAiReviewerCmdSet" id="grpAiReviewerTools" />
-				<CommandFlag>DynamicItemStart</CommandFlag>
-				<Strings>
-					<ButtonText>Review Staged Changes</ButtonText>
-				</Strings>
-			</Button>
-			
-			<!-- Apply Fix Button -->
-			<Button guid="guidAiReviewerCmdSet" id="cmdApplyFix" priority="0x0102" type="Button">
-				<Parent guid="guidAiReviewerCmdSet" id="grpAiReviewerTools" />
-				<CommandFlag>DynamicItemStart</CommandFlag>
-				<Strings>
-					<ButtonText>Apply AI Fix...</ButtonText>
-				</Strings>
-			</Button>
-		</Buttons>
-	</Commands>
-
-	<Symbols>
+		<!-- Review Staged Changes Button -->
+		<Button guid="guidAiReviewerCmdSet" id="cmdReviewStaged" priority="0x0101" type="Button">
+			<Parent guid="guidAiReviewerCmdSet" id="grpAiReviewerTools" />
+			<CommandFlag>DynamicItemStart</CommandFlag>
+			<Strings>
+				<ButtonText>Review Staged Changes</ButtonText>
+			</Strings>
+		</Button>
+	</Buttons>
+</Commands>	<Symbols>
 		<!-- Package GUID -->
 		<GuidSymbol name="guidAiReviewerPackage" value="{BA5749DA-8661-4E2F-9803-BA0FC420ACD6}" />
 		
 		<!-- Command Set GUID -->
 		<GuidSymbol name="guidAiReviewerCmdSet" value="{D27F4BBD-41B9-4B8E-9B40-2D4A48A2B9C7}">
-			<IDSymbol name="grpAiReviewerTools" value="0x1000" />
-			<IDSymbol name="cmdShowToolWindow" value="0x0100" />
-			<IDSymbol name="cmdReviewStaged" value="0x0101" />
-			<IDSymbol name="cmdApplyFix" value="0x0102" />
+		<IDSymbol name="grpAiReviewerTools" value="0x1000" />
+		<IDSymbol name="cmdShowToolWindow" value="0x0100" />
+		<IDSymbol name="cmdReviewStaged" value="0x0101" />
 		</GuidSymbol>
 		
 		<!-- Built-in Tools Menu GUID -->

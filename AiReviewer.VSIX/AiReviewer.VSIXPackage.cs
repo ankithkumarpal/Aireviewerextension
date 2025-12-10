@@ -40,11 +40,6 @@ namespace AiReviewer.VSIX
                 var reviewCommandID = new CommandID(cmdSetGuid, 0x0101);
                 var reviewMenuItem = new MenuCommand(ReviewCommand.Execute, reviewCommandID);
                 commandService.AddCommand(reviewMenuItem);
-                
-                // Register Apply Fix command
-                var applyFixCommandID = new CommandID(cmdSetGuid, 0x0102);
-                var applyFixMenuItem = new MenuCommand(ApplyFixCommand.Execute, applyFixCommandID);
-                commandService.AddCommand(applyFixMenuItem);
             }
         }
 

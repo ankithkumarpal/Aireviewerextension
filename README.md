@@ -69,21 +69,6 @@ Currently optimized for:
 - C#
 - .NET projects
 
-*More languages coming soon!*
-
-## Project-Specific Rules (Optional)
-
-Integrate with MerlinBot by creating `.config/merlinBot/PullRequestAssistant.yaml`:
-
-```yaml
-version: 1
-checks:
-  - id: no-console-writeline
-    description: Use ILogger instead of Console.WriteLine
-    severity: Warning
-    guidance: Replace with _logger.LogInformation()
-```
-
 ## Privacy & Security
 
 - Your code is sent to Azure OpenAI for analysis
