@@ -204,9 +204,15 @@ namespace AiReviewer.Shared
             sb.AppendLine("SEVERITY: High|Medium|Low");
             sb.AppendLine("ISSUE: <detailed explanation of the problem>");
             sb.AppendLine("SUGGESTION: <specific, actionable improvement with reasoning>");
-            sb.AppendLine("FIXEDCODE: <corrected code matching existing patterns and style>");
+            sb.AppendLine("FIXEDCODE: <REQUIRED - ALWAYS provide the exact corrected code snippet, even for comments/spelling>");
             sb.AppendLine("RULE: <category: Security|Performance|Reliability|Code Quality|Best Practices|Documentation>");
             sb.AppendLine("---");
+            sb.AppendLine();
+            sb.AppendLine("⚠️ CRITICAL: ALWAYS include FIXEDCODE showing the exact corrected line(s).");
+            sb.AppendLine("Examples:");
+            sb.AppendLine("  - Typo in comment: FIXEDCODE: // we will be returning in case if the ext.version == clusterExtensionVersion");
+            sb.AppendLine("  - Console.WriteLine: FIXEDCODE: _commonLogger.Debug(this, message: \"Code execution reached this point in AttemptCreateOrUpdateExtensionWithConfigAsync.\", context: null);");
+            sb.AppendLine("  - Spelling in string: FIXEDCODE: Console.WriteLine(\"Performance improved\");");
             sb.AppendLine();
             sb.AppendLine("🚨 IMPORTANT:");
             sb.AppendLine("- Review EVERY changed line thoroughly");
