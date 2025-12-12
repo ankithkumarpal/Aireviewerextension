@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Azure;
 using Azure.AI.OpenAI;
 using OpenAI.Chat;
+using System.ClientModel;
 
 namespace AiReviewer.Shared
 {
@@ -15,6 +16,7 @@ namespace AiReviewer.Shared
         public string FilePath { get; set; } = "";
         public int LineNumber { get; set; }
         public string Severity { get; set; } = "Medium";
+        public string Confidence { get; set; } = "Medium";
         public string Issue { get; set; } = "";
         public string Suggestion { get; set; } = "";
         public string Rule { get; set; } = "";
@@ -38,11 +40,24 @@ namespace AiReviewer.Shared
 
         public async Task<List<ReviewResult>> ReviewCodeAsync(List<Patch> patches, MerlinConfig config)
         {
-            var client = new AzureOpenAIClient(new Uri(_endpoint), new AzureKeyCredential(_apiKey));
+            // DEBUG: Log patches being reviewed
+            System.Diagnostics.Debug.WriteLine($"=== AI REVIEW START ===");
+            System.Diagnostics.Debug.WriteLine($"Reviewing {patches.Count} file(s)");
+            foreach (var p in patches)
+            {
+                System.Diagnostics.Debug.WriteLine($"  - {p.FilePath}: {p.Hunks.Count} hunk(s)");
+            }
+            
+            var client = new AzureOpenAIClient(new Uri(_endpoint), new ApiKeyCredential(_apiKey));
             var chatClient = client.GetChatClient(_deploymentName);
             
             // Build the prompt
             var prompt = BuildReviewPrompt(patches, config);
+            
+            // DEBUG: Log prompt length
+            System.Diagnostics.Debug.WriteLine($"Prompt length: {prompt.Length} chars");
+            System.Diagnostics.Debug.WriteLine($"Prompt preview (first 1000 chars):\n{prompt.Substring(0, Math.Min(1000, prompt.Length))}");
+            System.Diagnostics.Debug.WriteLine($"---");
             
             var messages = new List<ChatMessage>
             {
@@ -50,6 +65,7 @@ namespace AiReviewer.Shared
                 new UserChatMessage(prompt)
             };
 
+            System.Diagnostics.Debug.WriteLine($"Calling Azure OpenAI API...");
             var completion = await chatClient.CompleteChatAsync(messages, new ChatCompletionOptions
             {
                 Temperature = 0.3f,
@@ -57,9 +73,33 @@ namespace AiReviewer.Shared
             });
 
             var reviewText = completion.Value.Content[0].Text;
+            System.Diagnostics.Debug.WriteLine($"API call completed successfully!");
+
+            // DEBUG: Log AI response
+            System.Diagnostics.Debug.WriteLine($"AI Response Length: {reviewText?.Length ?? 0}");
+            if (reviewText != null && reviewText.Length > 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"=== FULL AI RESPONSE ===");
+                System.Diagnostics.Debug.WriteLine(reviewText);
+                System.Diagnostics.Debug.WriteLine($"=== END AI RESPONSE ===");
+            }
 
             // Parse the AI response into structured results
             var results = ParseReviewResponse(reviewText, patches);
+            
+            // DEBUG: Log parsing result
+            System.Diagnostics.Debug.WriteLine($"PASS 1: Parsed {results.Count} issues from AI response");
+            if (results.Count == 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"WARNING: No issues parsed! Check if AI response format matches expected format.");
+            }
+            else
+            {
+                foreach (var r in results)
+                {
+                    System.Diagnostics.Debug.WriteLine($"  Issue: {r.FilePath}:{r.LineNumber} - {r.Severity} - {r.Issue}");
+                }
+            }
             
             // Add code snippets to results
             foreach (var result in results)
@@ -67,6 +107,17 @@ namespace AiReviewer.Shared
                 result.CodeSnippet = ExtractCodeSnippet(patches, result.FilePath, result.LineNumber);
             }
             
+            // PASS 2: Validate the fixes (DISABLED - was filtering too aggressively)
+            // if (results.Count > 0)
+            // {
+            //     System.Diagnostics.Debug.WriteLine($"=== STARTING PASS 2: VALIDATION ===");
+            //     var validatedResults = await ValidateFixesAsync(chatClient, results, patches);
+            //     System.Diagnostics.Debug.WriteLine($"PASS 2: {validatedResults.Count} issues validated (filtered {results.Count - validatedResults.Count} false positives)");
+            //     System.Diagnostics.Debug.WriteLine($"=== AI REVIEW END ===");
+            //     return validatedResults;
+            // }
+            
+            System.Diagnostics.Debug.WriteLine($"=== AI REVIEW END ===");
             return results;
         }
         
@@ -167,6 +218,76 @@ namespace AiReviewer.Shared
             sb.AppendLine("- Missing XML documentation on public APIs");
             sb.AppendLine("- Hardcoded configuration values (use config files)");
             sb.AppendLine();
+            sb.AppendLine("� OOP PRINCIPLES (FUNDAMENTAL):");
+            sb.AppendLine("- **Encapsulation Violations**:");
+            sb.AppendLine("  • Public fields instead of properties (breaks encapsulation)");
+            sb.AppendLine("  • Missing validation in setters (allowing invalid state)");
+            sb.AppendLine("  • Exposing internal collections directly (return IReadOnlyList/IEnumerable instead)");
+            sb.AppendLine("  • Breaking information hiding (exposing implementation details)");
+            sb.AppendLine("- **Inheritance Issues**:");
+            sb.AppendLine("  • Deep inheritance hierarchies (>3 levels, prefer composition)");
+            sb.AppendLine("  • Violating Liskov Substitution Principle (subclass breaks parent contract)");
+            sb.AppendLine("  • Using inheritance for code reuse instead of composition");
+            sb.AppendLine("  • Missing virtual/override keywords where needed");
+            sb.AppendLine("  • Sealed classes that should be inheritable (or vice versa)");
+            sb.AppendLine("- **Polymorphism Misuse**:");
+            sb.AppendLine("  • Type checking instead of polymorphism (if (obj is Type) → use virtual methods)");
+            sb.AppendLine("  • Casting instead of using generic types");
+            sb.AppendLine("  • Missing interfaces for abstraction");
+            sb.AppendLine("  • Not using polymorphism where it simplifies code (Strategy pattern)");
+            sb.AppendLine();
+            sb.AppendLine("🔷 C# & .NET SPECIFIC PATTERNS:");
+            sb.AppendLine("- **Async/Await Best Practices**:");
+            sb.AppendLine("  • Async void methods (should be async Task, except event handlers)");
+            sb.AppendLine("  • Missing CancellationToken support in async methods");
+            sb.AppendLine("  • Blocking on async code (.Result, .Wait() → use await)");
+            sb.AppendLine("  • Not using ValueTask for hot paths with common synchronous completion");
+            sb.AppendLine("  • Missing ConfigureAwait(false) in library code (causes deadlocks)");
+            sb.AppendLine("  • Async over sync (wrapping synchronous code in Task.Run unnecessarily)");
+            sb.AppendLine("- **LINQ Optimization**:");
+            sb.AppendLine("  • Multiple enumeration (.ToList() missing when enumerating multiple times)");
+            sb.AppendLine("  • Using .Where().Count() instead of .Count(predicate)");
+            sb.AppendLine("  • Using .Where().Any() instead of .Any(predicate)");
+            sb.AppendLine("  • Using .Where().First() instead of .First(predicate)");
+            sb.AppendLine("  • Inefficient queries (use AsParallel() for CPU-bound operations)");
+            sb.AppendLine("  • Materializing entire sequences unnecessarily");
+            sb.AppendLine("- **IDisposable & Resource Management**:");
+            sb.AppendLine("  • Missing using statements for IDisposable objects");
+            sb.AppendLine("  • Not implementing IDisposable when class owns unmanaged resources");
+            sb.AppendLine("  • Missing Dispose(bool disposing) pattern for inheritance");
+            sb.AppendLine("  • Finalizers without IDisposable implementation");
+            sb.AppendLine("  • Using GC.SuppressFinalize without implementing finalizer");
+            sb.AppendLine("- **Null Handling (C# 8+)**:");
+            sb.AppendLine("  • Not using nullable reference types (#nullable enable)");
+            sb.AppendLine("  • Missing null-coalescing operators (??, ??=)");
+            sb.AppendLine("  • Not using null-conditional operators (?., ?[])");
+            sb.AppendLine("  • Using 'if (x != null)' instead of pattern matching 'if (x is { })'");
+            sb.AppendLine("- **Modern C# Features**:");
+            sb.AppendLine("  • Not using pattern matching where appropriate (switch expressions, is patterns)");
+            sb.AppendLine("  • Verbose property declarations (use expression-bodied members, init accessors)");
+            sb.AppendLine("  • Not using records for immutable data");
+            sb.AppendLine("  • Using String.Format instead of string interpolation ($\"\")");
+            sb.AppendLine("  • Not using collection expressions (C# 12+): [] instead of new List<T>()");
+            sb.AppendLine("  • Not using file-scoped namespaces");
+            sb.AppendLine("- **Exception Handling**:");
+            sb.AppendLine("  • Catching System.Exception (too broad, catch specific exceptions)");
+            sb.AppendLine("  • Empty catch blocks (at least log the exception)");
+            sb.AppendLine("  • Using exceptions for control flow (expensive, use Try* pattern)");
+            sb.AppendLine("  • Throwing Exception instead of specific exception types");
+            sb.AppendLine("  • Not preserving stack trace (throw ex instead of throw)");
+            sb.AppendLine();
+            sb.AppendLine("�🏗️ DESIGN PATTERNS & ANTI-PATTERNS:");
+            sb.AppendLine("- **God Class**: Class with too many responsibilities (>500 lines, >10 methods, doing unrelated things)");
+            sb.AppendLine("- **Singleton Abuse**: Using Singleton when not needed, making testing difficult");
+            sb.AppendLine("- **Tight Coupling**: Classes directly instantiating dependencies instead of injection");
+            sb.AppendLine("- **Feature Envy**: Method using more data from another class than its own");
+            sb.AppendLine("- **Long Parameter List**: Methods with >4 parameters (use parameter object pattern)");
+            sb.AppendLine("- **Primitive Obsession**: Using primitives instead of small objects (e.g., string for email/phone)");
+            sb.AppendLine("- **Switch Statement Smell**: Large switch/if-else chains that should use polymorphism/strategy pattern");
+            sb.AppendLine("- **Circular Dependencies**: Classes depending on each other (A → B → A)");
+            sb.AppendLine("- **Data Clumps**: Same group of data parameters appearing together (create a class)");
+            sb.AppendLine("- **Missing Patterns**: Suggest Factory, Strategy, Repository, or other patterns when appropriate");
+            sb.AppendLine();
             sb.AppendLine("✍️ DOCUMENTATION & GRAMMAR:");
             sb.AppendLine("- Spelling errors in comments (e.g., 'recieve' → 'receive', 'occured' → 'occurred')");
             sb.AppendLine("- Grammar mistakes in comments (incomplete sentences, wrong tense, unclear phrasing)");
@@ -202,6 +323,7 @@ namespace AiReviewer.Shared
             sb.AppendLine("FILE: <file path>");
             sb.AppendLine("LINE: <line number>");
             sb.AppendLine("SEVERITY: High|Medium|Low");
+            sb.AppendLine("CONFIDENCE: High|Medium|Low");
             sb.AppendLine("ISSUE: <detailed explanation of the problem>");
             sb.AppendLine("SUGGESTION: <specific, actionable improvement with reasoning>");
             sb.AppendLine("FIXEDCODE: <THE EXACT CORRECTED LINE - MANDATORY, NO EXCEPTIONS>");
@@ -215,16 +337,41 @@ namespace AiReviewer.Shared
             sb.AppendLine("- Wrong operator? → FIXEDCODE: if (x == y)");
             sb.AppendLine("If you don't provide FIXEDCODE, the developer cannot apply the fix!");
             sb.AppendLine();
+            sb.AppendLine("=== CONFIDENCE LEVEL GUIDELINES ===");
+            sb.AppendLine("High Confidence:");
+            sb.AppendLine("- Objective issues: syntax errors, security vulnerabilities (hardcoded secrets, SQL injection)");
+            sb.AppendLine("- Clear violations: Console.WriteLine in production, missing null checks with obvious NPE risk");
+            sb.AppendLine("- Spelling/grammar errors in comments or strings");
+            sb.AppendLine("- Definite bugs: off-by-one, wrong operator, unreachable code");
+            sb.AppendLine();
+            sb.AppendLine("Medium Confidence:");
+            sb.AppendLine("- Code smells: long methods, god classes, tight coupling");
+            sb.AppendLine("- Performance concerns: N+1 queries, inefficient algorithms");
+            sb.AppendLine("- Best practice violations: missing async/await, fire-and-forget");
+            sb.AppendLine("- Design pattern suggestions (Factory, Strategy, etc.)");
+            sb.AppendLine();
+            sb.AppendLine("Low Confidence:");
+            sb.AppendLine("- Subjective style preferences: naming conventions, code organization");
+            sb.AppendLine("- Speculative improvements without clear business context");
+            sb.AppendLine("- Suggestions that might not apply to specific use case");
+            sb.AppendLine("- Architectural changes that need more information");
+            sb.AppendLine();
             sb.AppendLine("🚨 WHAT TO REVIEW:");
             sb.AppendLine();
             sb.AppendLine("PRIMARY: Lines marked '← NEW LINE' (changed/added code)");
-            sb.AppendLine("- Review ALL new lines for security, performance, reliability, code quality, etc.");
+            sb.AppendLine("- Review ALL new lines for security, performance, reliability, code quality, OOP principles, C# best practices, etc.");
+            sb.AppendLine("- Check for modern C# feature usage (pattern matching, records, file-scoped namespaces)");
+            sb.AppendLine("- Verify proper async/await, LINQ optimization, and IDisposable patterns");
+            sb.AppendLine("- Look for OOP violations (encapsulation, inheritance misuse, missing polymorphism)");
             sb.AppendLine();
             sb.AppendLine("SECONDARY: Context lines DIRECTLY AFFECTED by the changes");
+            sb.AppendLine("- USE CONTEXT EXTENSIVELY - understand the full method/class purpose from surrounding code");
+            sb.AppendLine("- Analyze the broader context: class structure, method signatures, inheritance hierarchy");
             sb.AppendLine("- If a new comment contradicts existing code in context → FLAG IT (report on the NEW comment line)");
             sb.AppendLine("- If a new variable name conflicts with existing ones in context → FLAG IT");
             sb.AppendLine("- If new code breaks existing logic patterns in context → FLAG IT");
             sb.AppendLine("- If new code makes existing context code unreachable/redundant → FLAG IT");
+            sb.AppendLine("- Check if new code fits well with existing design patterns in the context");
             sb.AppendLine();
             sb.AppendLine("DO NOT REPORT: Issues in context lines unrelated to the changes");
             sb.AppendLine("- Old code with Console.WriteLine that wasn't touched → IGNORE");
@@ -234,11 +381,17 @@ namespace AiReviewer.Shared
             sb.AppendLine("FOCUS: What did the developer CHANGE and how does it impact surrounding code?");
             sb.AppendLine();
             sb.AppendLine("Review Guidelines:");
-            sb.AppendLine("- Review EVERY line marked '← NEW LINE' thoroughly");
+            sb.AppendLine("- Review EVERY line marked '← NEW LINE' thoroughly with ALL checklist categories");
             sb.AppendLine("- Check if changes introduce inconsistencies with context");
             sb.AppendLine("- Verify new comments describe actual logic (not opposite)");
-            sb.AppendLine("- Report MULTIPLE issues per line if they exist");
-            sb.AppendLine("- Provide context-aware fixes that match the surrounding code");
+            sb.AppendLine("- Report MULTIPLE issues per line if they exist (don't stop at first issue)");
+            sb.AppendLine("- Provide context-aware fixes that match the surrounding code style");
+            sb.AppendLine("- Look for design patterns and anti-patterns in the new/changed code");
+            sb.AppendLine("- Suggest modern C# features when applicable (C# 8-12)");
+            sb.AppendLine("- If you see a class growing too large (context shows many methods), flag it as God Class");
+            sb.AppendLine("- If you see a method with many parameters (>4), suggest parameter object pattern");
+            sb.AppendLine("- Check for proper use of interfaces, abstract classes, and inheritance hierarchies");
+            sb.AppendLine("- Validate proper encapsulation (no public fields, proper property usage)");
             sb.AppendLine();
             sb.AppendLine("🔍 COMMENT-CODE VERIFICATION (CRITICAL):");
             sb.AppendLine("- When you see a comment above/near an if-statement, VERIFY the comment matches the actual condition");
@@ -363,6 +516,17 @@ namespace AiReviewer.Shared
                         
                         current.Severity = severity.Trim('*', ' ');
                     }
+                    else if (trimmed.StartsWith("CONFIDENCE:", StringComparison.OrdinalIgnoreCase) ||
+                             trimmed.StartsWith("**CONFIDENCE:**", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var confidence = trimmed;
+                        if (confidence.StartsWith("**CONFIDENCE:**"))
+                            confidence = confidence.Substring(15);
+                        else
+                            confidence = confidence.Substring(11);
+                        
+                        current.Confidence = confidence.Trim('*', ' ');
+                    }
                     else if (trimmed.StartsWith("ISSUE:", StringComparison.OrdinalIgnoreCase) ||
                              trimmed.StartsWith("**ISSUE:**", StringComparison.OrdinalIgnoreCase))
                     {
@@ -421,6 +585,126 @@ namespace AiReviewer.Shared
             }
 
             return results;
+        }
+
+        private async Task<List<ReviewResult>> ValidateFixesAsync(ChatClient chatClient, List<ReviewResult> results, List<Patch> patches)
+        {
+            var validatedResults = new List<ReviewResult>();
+            
+            // Build validation prompt
+            var sb = new StringBuilder();
+            sb.AppendLine("You are validating code review suggestions. Your job is to:");
+            sb.AppendLine("1. Verify the issue is real (not a false positive)");
+            sb.AppendLine("2. Check if the FIXEDCODE actually solves the problem");
+            sb.AppendLine("3. Ensure the fix doesn't introduce new issues");
+            sb.AppendLine();
+            sb.AppendLine("For each issue below, respond with ONLY:");
+            sb.AppendLine("VALID: YES or NO");
+            sb.AppendLine("REASON: Brief explanation");
+            sb.AppendLine("---");
+            sb.AppendLine();
+            sb.AppendLine("Review these issues:");
+            sb.AppendLine();
+            
+            int issueNum = 1;
+            foreach (var result in results)
+            {
+                // Only validate Medium and High confidence issues
+                if (result.Confidence != "Low")
+                {
+                    sb.AppendLine($"ISSUE #{issueNum}:");
+                    sb.AppendLine($"File: {result.FilePath}");
+                    sb.AppendLine($"Line: {result.LineNumber}");
+                    sb.AppendLine($"Severity: {result.Severity}");
+                    sb.AppendLine($"Confidence: {result.Confidence}");
+                    sb.AppendLine($"Problem: {result.Issue}");
+                    sb.AppendLine($"Original Code: {result.CodeSnippet}");
+                    sb.AppendLine($"Suggested Fix: {result.FixedCode}");
+                    sb.AppendLine($"Suggestion: {result.Suggestion}");
+                    sb.AppendLine();
+                    issueNum++;
+                }
+            }
+            
+            var validationMessages = new List<ChatMessage>
+            {
+                new SystemChatMessage("You are a validation expert. Be critical and strict - reject false positives and ineffective fixes."),
+                new UserChatMessage(sb.ToString())
+            };
+
+            System.Diagnostics.Debug.WriteLine($"Validation prompt length: {sb.Length} chars");
+            System.Diagnostics.Debug.WriteLine($"Calling validation API...");
+            
+            var validationCompletion = await chatClient.CompleteChatAsync(validationMessages, new ChatCompletionOptions
+            {
+                Temperature = 0.1f,  // Lower temperature for more consistent validation
+                MaxOutputTokenCount = 1500
+            });
+
+            var validationText = validationCompletion.Value.Content[0].Text;
+            System.Diagnostics.Debug.WriteLine($"=== VALIDATION RESPONSE ===");
+            System.Diagnostics.Debug.WriteLine(validationText);
+            System.Diagnostics.Debug.WriteLine($"=== END VALIDATION ===");
+            
+            // Parse validation response
+            var validationLines = validationText.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+            bool? currentValid = null;
+            string currentReason = "";
+            int resultIndex = 0;
+            
+            foreach (var line in validationLines)
+            {
+                var trimmed = line.Trim();
+                
+                if (trimmed.StartsWith("VALID:", StringComparison.OrdinalIgnoreCase))
+                {
+                    var validStr = trimmed.Substring(6).Trim().ToUpperInvariant();
+                    currentValid = validStr.Contains("YES");
+                }
+                else if (trimmed.StartsWith("REASON:", StringComparison.OrdinalIgnoreCase))
+                {
+                    currentReason = trimmed.Substring(7).Trim();
+                }
+                else if (trimmed == "---" && currentValid.HasValue)
+                {
+                    // Find the corresponding result (skip Low confidence ones)
+                    while (resultIndex < results.Count && results[resultIndex].Confidence == "Low")
+                    {
+                        // Auto-accept Low confidence issues (they're informational)
+                        validatedResults.Add(results[resultIndex]);
+                        resultIndex++;
+                    }
+                    
+                    if (resultIndex < results.Count)
+                    {
+                        if (currentValid.Value)
+                        {
+                            validatedResults.Add(results[resultIndex]);
+                            System.Diagnostics.Debug.WriteLine($"✓ VALIDATED: {results[resultIndex].FilePath}:{results[resultIndex].LineNumber} - {currentReason}");
+                        }
+                        else
+                        {
+                            System.Diagnostics.Debug.WriteLine($"✗ REJECTED: {results[resultIndex].FilePath}:{results[resultIndex].LineNumber} - {currentReason}");
+                        }
+                        resultIndex++;
+                    }
+                    
+                    currentValid = null;
+                    currentReason = "";
+                }
+            }
+            
+            // Add any remaining Low confidence issues
+            while (resultIndex < results.Count)
+            {
+                if (results[resultIndex].Confidence == "Low")
+                {
+                    validatedResults.Add(results[resultIndex]);
+                }
+                resultIndex++;
+            }
+            
+            return validatedResults;
         }
     }
 }

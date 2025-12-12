@@ -59,7 +59,7 @@ namespace AiReviewer.Shared
             var psi = new ProcessStartInfo
             {
                 FileName = "git",
-                Arguments = "diff --cached --unified=25",  // Get 25 lines of context for comprehensive AI understanding
+                Arguments = "diff --cached --unified=30",  // Get 30 lines of context for comprehensive AI understanding
                 WorkingDirectory = repoRoot,
                 RedirectStandardOutput = true,
                 UseShellExecute = false

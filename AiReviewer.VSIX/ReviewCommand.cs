@@ -159,6 +159,9 @@ namespace AiReviewer.VSIX
                 var aiService = new AiReviewService(aiConfig.AzureOpenAIEndpoint, aiConfig.AzureOpenAIKey, aiConfig.DeploymentName);
                 var results = await aiService.ReviewCodeAsync(patches, cfg);
 
+                // DEBUG: Show what we got from AI
+                System.Diagnostics.Debug.WriteLine($"AI returned {results.Count} issues");
+
                 // Set repository path for all results
                 foreach (var result in results)
                 {
