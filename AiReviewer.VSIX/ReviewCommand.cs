@@ -155,9 +155,9 @@ namespace AiReviewer.VSIX
 
             try
             {
-                // Call AI review service
+                // Call AI review service with repository path for learning system trhough user experience
                 var aiService = new AiReviewService(aiConfig.AzureOpenAIEndpoint, aiConfig.AzureOpenAIKey, aiConfig.DeploymentName);
-                var results = await aiService.ReviewCodeAsync(patches, cfg);
+                var results = await aiService.ReviewCodeAsync(patches, cfg, repo);
 
                 // DEBUG: Show what we got from AI
                 System.Diagnostics.Debug.WriteLine($"AI returned {results.Count} issues");

@@ -8,11 +8,17 @@ using Azure;
 using Azure.AI.OpenAI;
 using OpenAI.Chat;
 using System.ClientModel;
+using AiReviewer.Shared.Services;
 
 namespace AiReviewer.Shared
 {
     public class ReviewResult
     {
+        /// <summary>
+        /// Unique ID for tracking feedback on this review
+        /// </summary>
+        public string ReviewId { get; set; } = System.Guid.NewGuid().ToString("N");
+        
         public string FilePath { get; set; } = "";
         public int LineNumber { get; set; }
         public string Severity { get; set; } = "Medium";
@@ -23,6 +29,11 @@ namespace AiReviewer.Shared
         public string CodeSnippet { get; set; } = "";
         public string FixedCode { get; set; } = "";
         public string RepositoryPath { get; set; } = "";
+        
+        /// <summary>
+        /// When this review was created
+        /// </summary>
+        public System.DateTime CreatedAt { get; set; } = System.DateTime.UtcNow;
     }
 
     public class AiReviewService
@@ -30,6 +41,7 @@ namespace AiReviewer.Shared
         private readonly string _endpoint;
         private readonly string _apiKey;
         private readonly string _deploymentName;
+        private string _currentRepositoryPath;
 
         public AiReviewService(string endpoint, string apiKey, string deploymentName)
         {
@@ -38,8 +50,11 @@ namespace AiReviewer.Shared
             _deploymentName = deploymentName;
         }
 
-        public async Task<List<ReviewResult>> ReviewCodeAsync(List<Patch> patches, MerlinConfig config)
+        public async Task<List<ReviewResult>> ReviewCodeAsync(List<Patch> patches, MerlinConfig config, string repositoryPath = null)
         {
+            // Store repository path for learning system
+            _currentRepositoryPath = repositoryPath;
+            
             // DEBUG: Log patches being reviewed
             System.Diagnostics.Debug.WriteLine($"=== AI REVIEW START ===");
             System.Diagnostics.Debug.WriteLine($"Reviewing {patches.Count} file(s)");
@@ -414,6 +429,35 @@ namespace AiReviewer.Shared
                     }
                 }
                 sb.AppendLine();
+            }
+
+            // AI LEARNING: Inject patterns learned from user feedback stored.
+            try
+            {
+                if (!string.IsNullOrEmpty(_currentRepositoryPath))
+                {
+                    var patternAnalyzer = new PatternAnalyzer(_currentRepositoryPath);
+                    
+                    // First, analyze any new feedback to update patterns
+                    patternAnalyzer.AnalyzeFeedback();
+                    
+                    // Get relevant few-shot examples
+                    var fileExtension = patches.FirstOrDefault()?.FilePath != null 
+                        ? Path.GetExtension(patches.First().FilePath)?.ToLowerInvariant() 
+                        : ".cs";
+                    
+                    var examples = patternAnalyzer.GetRelevantPatterns(fileExtension, maxPatterns: 15, minAccuracy: 35.0);
+                    
+                    if (examples.Count > 0)
+                    {
+                        var learningSection = patternAnalyzer.FormatExamplesForPrompt(examples);
+                        sb.Append(learningSection);
+                        System.Diagnostics.Debug.WriteLine($"[AI Reviewer] Injected {examples.Count} learned patterns into prompt");
+                    }
+                }
+            }
+            catch (Exception ex) { 
+                System.Diagnostics.Debug.WriteLine($"[AI Reviewer] Warning: Could not load learned patterns: {ex.Message}");
             }
 
             sb.AppendLine("Code Changes:");
