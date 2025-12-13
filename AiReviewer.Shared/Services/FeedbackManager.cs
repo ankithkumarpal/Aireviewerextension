@@ -1,135 +1,107 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text.Json;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading.Tasks;
 using AiReviewer.Shared.Models;
 
 namespace AiReviewer.Shared.Services
 {
     /// <summary>
-    /// Manages storage and retrieval of user feedback for the AI learning system.
-    /// Stores feedback in a JSON file within the repository's .config folder.
+    /// Manages storage and retrieval of user feedback via Azure Team Learning API.
+    /// All feedback is stored in Azure Table Storage (no local files).
     /// </summary>
     public class FeedbackManager
     {
-        private static readonly string FeedbackFileName = "feedback.json";
-        private static readonly string ConfigFolder = ".config/ai-reviewer";
-        
         private readonly string _repositoryPath;
-        private readonly string _feedbackFilePath;
+        private readonly TeamLearningApiClient _teamApiClient;
+        private readonly string _contributorName;
 
         /// <summary>
-        /// Creates a new FeedbackManager for the specified repository
+        /// Creates a new FeedbackManager with team learning API
         /// </summary>
         /// <param name="repositoryPath">Root path of the git repository</param>
-        public FeedbackManager(string repositoryPath)
+        /// <param name="teamApiClient">API client for team learning (required)</param>
+        /// <param name="contributorName">Name to identify this user's feedback</param>
+        public FeedbackManager(string repositoryPath, TeamLearningApiClient teamApiClient, string contributorName)
         {
-            _repositoryPath = repositoryPath;
-            _feedbackFilePath = GetFeedbackFilePath(repositoryPath);
-            EnsureDirectoryExists();
+            _repositoryPath = repositoryPath ?? throw new ArgumentNullException(nameof(repositoryPath));
+            _teamApiClient = teamApiClient ?? throw new ArgumentNullException(nameof(teamApiClient));
+            _contributorName = string.IsNullOrEmpty(contributorName) ? Environment.UserName : contributorName;
         }
 
         /// <summary>
-        /// Gets the full path to the feedback file
-        /// </summary>
-        public static string GetFeedbackFilePath(string repositoryPath)
-        {
-            return Path.Combine(repositoryPath, ConfigFolder, FeedbackFileName);
-        }
-
-        /// <summary>
-        /// Ensures the config directory exists
-        /// </summary>
-        private void EnsureDirectoryExists()
-        {
-            var directory = Path.GetDirectoryName(_feedbackFilePath);
-            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-        }
-
-        /// <summary>
-        /// Loads all feedback from the JSON file
-        /// </summary>
-        /// <returns>FeedbackData containing all feedback entries</returns>
-        public FeedbackData LoadFeedback()
-        {
-            try
-            {
-                if (!File.Exists(_feedbackFilePath))
-                {
-                    return new FeedbackData();
-                }
-
-                var json = File.ReadAllText(_feedbackFilePath);
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                };
-                
-                var data = JsonSerializer.Deserialize<FeedbackData>(json, options);
-                return data ?? new FeedbackData();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error loading feedback: {ex.Message}");
-                return new FeedbackData();
-            }
-        }
-
-        /// <summary>
-        /// Saves a single feedback entry (appends to existing data)
+        /// Saves feedback to Azure (fire-and-forget for UI responsiveness)
         /// </summary>
         /// <param name="feedback">The feedback to save</param>
         public void SaveFeedback(ReviewFeedback feedback)
         {
-            var data = LoadFeedback();
-            
-            // Set repository context
             feedback.RepositoryPath = _repositoryPath;
             feedback.Timestamp = DateTime.UtcNow;
+
+            var teamFeedback = ConvertToTeamFeedback(feedback);
+            _teamApiClient.SubmitFeedbackFireAndForget(teamFeedback);
             
-            // Add new feedback
-            data.Feedbacks.Add(feedback);
-            data.TotalReviews = GetUniqueReviewCount(data.Feedbacks);
-            data.LastUpdated = DateTime.UtcNow;
-            
-            SaveAllFeedback(data);
-            
-            System.Diagnostics.Debug.WriteLine($"Feedback saved: {feedback.AiIssueDescription} - WasHelpful: {feedback.WasHelpful}");
+            System.Diagnostics.Debug.WriteLine($"[AI Reviewer] Feedback sent to Azure: {feedback.AiIssueDescription} - WasHelpful: {feedback.WasHelpful}");
         }
 
         /// <summary>
-        /// Saves the complete feedback data to file
+        /// Saves feedback to Azure and waits for completion
         /// </summary>
-        /// <param name="data">All feedback data to save</param>
-        public void SaveAllFeedback(FeedbackData data)
+        public async Task SaveFeedbackAsync(ReviewFeedback feedback)
         {
-            try
+            feedback.RepositoryPath = _repositoryPath;
+            feedback.Timestamp = DateTime.UtcNow;
+
+            var teamFeedback = ConvertToTeamFeedback(feedback);
+            await _teamApiClient.SubmitFeedbackAsync(teamFeedback).ConfigureAwait(false);
+            
+            System.Diagnostics.Debug.WriteLine($"[AI Reviewer] Feedback saved to Azure: {feedback.AiIssueDescription}");
+        }
+
+        /// <summary>
+        /// Converts local feedback to team API format
+        /// </summary>
+        private TeamFeedbackRequest ConvertToTeamFeedback(ReviewFeedback feedback)
+        {
+            return new TeamFeedbackRequest
             {
-                EnsureDirectoryExists();
-                
-                var options = new JsonSerializerOptions
-                {
-                    WriteIndented = true,
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                };
-                
-                var json = JsonSerializer.Serialize(data, options);
-                File.WriteAllText(_feedbackFilePath, json);
-                
-                System.Diagnostics.Debug.WriteLine($"Feedback file saved: {data.Feedbacks.Count} entries");
-            }
-            catch (Exception ex)
+                FileExtension = Path.GetExtension(feedback.FilePath ?? "").ToLowerInvariant(),
+                Rule = feedback.Rule ?? "GENERAL",
+                CodeSnippet = feedback.CodeSnippet ?? "",
+                Suggestion = feedback.AiIssueDescription ?? "",
+                IssueHash = ComputeIssueHash(feedback.AiIssueDescription),
+                IsHelpful = feedback.WasHelpful,
+                Reason = feedback.Reason,
+                Correction = feedback.UserCorrection,
+                Contributor = _contributorName,
+                Repository = Path.GetFileName(_repositoryPath)
+            };
+        }
+
+        /// <summary>
+        /// Computes a hash for grouping similar suggestions
+        /// </summary>
+        private static string ComputeIssueHash(string? issueDescription)
+        {
+            if (string.IsNullOrEmpty(issueDescription))
+                return "unknown";
+
+            var normalized = issueDescription.ToLowerInvariant().Trim();
+            if (normalized.Length > 100)
+                normalized = normalized.Substring(0, 100);
+
+            using (var sha = SHA256.Create())
             {
-                System.Diagnostics.Debug.WriteLine($"Error saving feedback: {ex.Message}");
-                throw;
+                var bytes = Encoding.UTF8.GetBytes(normalized);
+                var hash = sha.ComputeHash(bytes);
+                return BitConverter.ToString(hash).Replace("-", "").Substring(0, 8).ToLowerInvariant();
             }
         }
 
         /// <summary>
-        /// Creates feedback from a review result with helpful status
+        /// Creates feedback from a review result
         /// </summary>
         public ReviewFeedback CreateFeedback(
             string filePath,
@@ -160,67 +132,45 @@ namespace AiReviewer.Shared.Services
         }
 
         /// <summary>
-        /// Gets count of unique review sessions
-        /// </summary>
-        private int GetUniqueReviewCount(List<ReviewFeedback> feedbacks)
-        {
-            var uniqueDates = new HashSet<string>();
-            foreach (var f in feedbacks)
-            {
-                // Group by day and file
-                uniqueDates.Add($"{f.Timestamp:yyyy-MM-dd}_{f.FilePath}");
-            }
-            return uniqueDates.Count;
-        }
-
-        /// <summary>
-        /// Gets feedback statistics for display
+        /// Gets feedback statistics from Azure
         /// </summary>
         public FeedbackStats GetStats()
         {
-            var data = LoadFeedback();
-            
-            var helpfulCount = 0;
-            var notHelpfulCount = 0;
-            
-            foreach (var f in data.Feedbacks)
+            try
             {
-                if (f.WasHelpful)
-                    helpfulCount++;
-                else
-                    notHelpfulCount++;
+                return GetStatsAsync().GetAwaiter().GetResult();
             }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[AI Reviewer] Failed to get stats: {ex.Message}");
+                return new FeedbackStats();
+            }
+        }
+
+        /// <summary>
+        /// Gets feedback statistics from Azure asynchronously
+        /// </summary>
+        public async Task<FeedbackStats> GetStatsAsync()
+        {
+            var teamStats = await _teamApiClient.GetStatsAsync().ConfigureAwait(false);
             
-            var totalFeedback = data.Feedbacks.Count;
-            var accuracy = totalFeedback > 0 
-                ? (double)helpfulCount / totalFeedback * 100 
-                : 0;
+            if (teamStats == null)
+            {
+                return new FeedbackStats();
+            }
 
             return new FeedbackStats
             {
-                TotalFeedback = totalFeedback,
-                HelpfulCount = helpfulCount,
-                NotHelpfulCount = notHelpfulCount,
-                AccuracyPercent = Math.Round(accuracy, 1),
-                TotalReviews = data.TotalReviews,
-                LastUpdated = data.LastUpdated
+                TotalFeedback = teamStats.TotalFeedback,
+                HelpfulCount = teamStats.HelpfulCount,
+                NotHelpfulCount = teamStats.NotHelpfulCount,
+                AccuracyPercent = Math.Round(teamStats.HelpfulRate, 1),
+                TotalReviews = teamStats.UniquePatterns,
+                LastUpdated = DateTime.UtcNow,
+                IsTeamStats = true,
+                UniqueContributors = teamStats.UniqueContributors,
+                TopContributors = teamStats.TopContributors
             };
-        }
-
-        /// <summary>
-        /// Clears all feedback (use with caution!)
-        /// </summary>
-        public void ClearAllFeedback()
-        {
-            SaveAllFeedback(new FeedbackData());
-        }
-
-        /// <summary>
-        /// Checks if feedback file exists
-        /// </summary>
-        public bool HasFeedback()
-        {
-            return File.Exists(_feedbackFilePath);
         }
     }
 
@@ -235,5 +185,8 @@ namespace AiReviewer.Shared.Services
         public double AccuracyPercent { get; set; }
         public int TotalReviews { get; set; }
         public DateTime LastUpdated { get; set; }
+        public bool IsTeamStats { get; set; } = true;
+        public int UniqueContributors { get; set; }
+        public List<TeamContributorStat>? TopContributors { get; set; }
     }
 }

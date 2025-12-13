@@ -42,12 +42,21 @@ namespace AiReviewer.Shared
         private readonly string _apiKey;
         private readonly string _deploymentName;
         private string _currentRepositoryPath;
+        private TeamLearningApiClient _teamApiClient;
 
         public AiReviewService(string endpoint, string apiKey, string deploymentName)
         {
             _endpoint = endpoint;
             _apiKey = apiKey;
             _deploymentName = deploymentName;
+        }
+
+        /// <summary>
+        /// Sets the Team Learning API client for pattern retrieval
+        /// </summary>
+        public void SetTeamApiClient(TeamLearningApiClient client)
+        {
+            _teamApiClient = client;
         }
 
         public async Task<List<ReviewResult>> ReviewCodeAsync(List<Patch> patches, MerlinConfig config, string repositoryPath = null)
@@ -434,19 +443,16 @@ namespace AiReviewer.Shared
             // AI LEARNING: Inject patterns learned from user feedback stored.
             try
             {
-                if (!string.IsNullOrEmpty(_currentRepositoryPath))
+                if (!string.IsNullOrEmpty(_currentRepositoryPath) && _teamApiClient != null)
                 {
-                    var patternAnalyzer = new PatternAnalyzer(_currentRepositoryPath);
+                    var patternAnalyzer = new PatternAnalyzer(_currentRepositoryPath, _teamApiClient);
                     
-                    // First, analyze any new feedback to update patterns
-                    patternAnalyzer.AnalyzeFeedback();
-                    
-                    // Get relevant few-shot examples
+                    // Get relevant few-shot examples from Azure
                     var fileExtension = patches.FirstOrDefault()?.FilePath != null 
                         ? Path.GetExtension(patches.First().FilePath)?.ToLowerInvariant() 
                         : ".cs";
                     
-                    var examples = patternAnalyzer.GetRelevantPatterns(fileExtension, maxPatterns: 15, minAccuracy: 35.0);
+                    var examples = patternAnalyzer.GetRelevantPatterns(fileExtension ?? ".cs", maxPatterns: 15, minAccuracy: 35.0);
                     
                     if (examples.Count > 0)
                     {
