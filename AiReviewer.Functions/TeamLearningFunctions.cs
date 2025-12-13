@@ -65,9 +65,7 @@ public class TeamLearningFunctions
         return response;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
     // POST /api/feedback - Submit new feedback
-    // ═══════════════════════════════════════════════════════════════════════════
 
     /// <summary>
     /// Submit feedback for a code review suggestion.
