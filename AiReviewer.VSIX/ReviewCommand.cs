@@ -187,9 +187,9 @@ namespace AiReviewer.VSIX
                     var lowCount = results.Count(r => r.Severity == "Low");
                     
                     var summary = $"Found {results.Count} issue(s) in staged changes:\n\n";
-                    if (highCount > 0) summary += $"🔴 High: {highCount}\n";
-                    if (mediumCount > 0) summary += $"🟡 Medium: {mediumCount}\n";
-                    if (lowCount > 0) summary += $"🟢 Low: {lowCount}\n";
+                    if (highCount > 0) summary += $"High: {highCount}\n";
+                    if (mediumCount > 0) summary += $"Medium: {mediumCount}\n";
+                    if (lowCount > 0) summary += $"Low: {lowCount}\n";
                     summary += "\n✓ Review results displayed in AI Code Reviewer window.";
                     
                     System.Windows.MessageBox.Show(

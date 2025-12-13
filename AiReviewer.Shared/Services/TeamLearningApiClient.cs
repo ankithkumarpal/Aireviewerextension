@@ -50,7 +50,7 @@ namespace AiReviewer.Shared.Services
 
         /// <summary>
         /// Submits feedback to the Team Learning API.
-        /// This is called when a user clicks 👍, 👎, or ✏️.
+        /// This is called when a user clicks on feedback buttons in the UI.
         /// </summary>
         /// <returns>True if successful, false otherwise</returns>
         public async Task<bool> SubmitFeedbackAsync(TeamFeedbackRequest feedback)

@@ -8,9 +8,9 @@ namespace AiReviewer.Functions.Models;
 /// 
 /// Table Design:
 /// - PartitionKey = File Extension (.cs, .js, etc.) 
-///   → Enables fast queries by file type
+///     Enables fast queries by file type
 /// - RowKey = Unique GUID
-///   → Ensures no conflicts on concurrent inserts
+///     Ensures no conflicts on concurrent inserts
 /// </summary>
 public class FeedbackEntity : ITableEntity
 {
@@ -56,7 +56,7 @@ public class FeedbackEntity : ITableEntity
     public string IssueHash { get; set; } = string.Empty;
 
     /// <summary>
-    /// Whether the user found this helpful (true = 👍, false = 👎)
+    /// Whether the user found this helpful
     /// </summary>
     public bool IsHelpful { get; set; }
 
