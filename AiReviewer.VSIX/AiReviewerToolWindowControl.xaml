@@ -64,6 +64,22 @@
                        Margin="10,0,10,5" FontSize="11"
                        Foreground="{DynamicResource {x:Static vsshell:VsBrushes.WindowTextKey}}"/>
             
+            <!-- Streaming Progress Panel -->
+            <Border Name="StreamingProgressPanel" Visibility="Collapsed" 
+                    Background="#1E1E2E" Margin="10,5,10,10" CornerRadius="5" Padding="10">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <TextBlock Name="StreamingStatusIcon" Text="⏳" FontSize="16" Margin="0,0,8,0"/>
+                        <TextBlock Name="StreamingStatusText" Text="Starting review..." 
+                                   FontSize="12" Foreground="#4EC9B0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <ProgressBar Name="StreamingProgressBar" Height="4" IsIndeterminate="True"
+                                 Background="#333" Foreground="#0E639C"/>
+                    <TextBlock Name="StreamingDetailsText" Text="" FontSize="10" 
+                               Foreground="#888" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+            
             <!-- Filter Buttons -->
             <StackPanel Name="FilterPanel" Orientation="Horizontal" Margin="10,0,10,10" Visibility="Collapsed">
                 <TextBlock Text="Filter:" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"

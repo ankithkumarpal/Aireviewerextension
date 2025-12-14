@@ -36,6 +36,32 @@ namespace AiReviewer.Shared
         public System.DateTime CreatedAt { get; set; } = System.DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// Progress update types for streaming review feedback
+    /// </summary>
+    public enum ReviewProgressType
+    {
+        Started,
+        BuildingPrompt,
+        CallingAI,
+        Streaming,
+        ParsingResults,
+        Completed
+    }
+
+    /// <summary>
+    /// Progress update data for review streaming
+    /// </summary>
+    public class ReviewProgressUpdate
+    {
+        public ReviewProgressType Type { get; set; }
+        public string Message { get; set; } = "";
+        public string PartialResponse { get; set; } = "";
+        public List<ReviewResult> PartialResults { get; set; } = new List<ReviewResult>();
+        public int TotalFiles { get; set; }
+        public int ProcessedTokens { get; set; }
+    }
+
     public class AiReviewService
     {
         private readonly string _endpoint;
@@ -59,6 +85,110 @@ namespace AiReviewer.Shared
             _teamApiClient = client;
         }
 
+        /// <summary>
+        /// Reviews code with streaming progress updates for better UX
+        /// </summary>
+        public async Task<List<ReviewResult>> ReviewCodeWithStreamingAsync(
+            List<Patch> patches, 
+            MerlinConfig config, 
+            string repositoryPath,
+            Action<ReviewProgressUpdate> onProgress)
+        {
+            _currentRepositoryPath = repositoryPath;
+            
+            // Report: Started
+            onProgress?.Invoke(new ReviewProgressUpdate
+            {
+                Type = ReviewProgressType.Started,
+                Message = $"Starting review of {patches.Count} file(s)...",
+                TotalFiles = patches.Count
+            });
+
+            var client = new AzureOpenAIClient(new Uri(_endpoint), new ApiKeyCredential(_apiKey));
+            var chatClient = client.GetChatClient(_deploymentName);
+
+            // Report: Building Prompt
+            onProgress?.Invoke(new ReviewProgressUpdate
+            {
+                Type = ReviewProgressType.BuildingPrompt,
+                Message = "Analyzing code and building context..."
+            });
+
+            var prompt = BuildReviewPrompt(patches, config);
+
+            var messages = new List<ChatMessage>
+            {
+                new SystemChatMessage("You are an expert code reviewer. Analyze code changes and provide specific, actionable feedback. Focus on code quality, readability, potential bugs, security issues, and best practices."),
+                new UserChatMessage(prompt)
+            };
+
+            // Report: Calling AI
+            onProgress?.Invoke(new ReviewProgressUpdate
+            {
+                Type = ReviewProgressType.CallingAI,
+                Message = "Sending to AI for review..."
+            });
+
+            // Use streaming API
+            var responseBuilder = new StringBuilder();
+            var streamingOptions = new ChatCompletionOptions
+            {
+                Temperature = 0.3f,
+                MaxOutputTokenCount = 2000
+            };
+
+            await foreach (var update in chatClient.CompleteChatStreamingAsync(messages, streamingOptions))
+            {
+                foreach (var contentPart in update.ContentUpdate)
+                {
+                    responseBuilder.Append(contentPart.Text);
+                    
+                    // Report streaming progress every ~500 chars
+                    if (responseBuilder.Length % 500 < 50)
+                    {
+                        onProgress?.Invoke(new ReviewProgressUpdate
+                        {
+                            Type = ReviewProgressType.Streaming,
+                            Message = $"Receiving AI response... ({responseBuilder.Length} chars)",
+                            PartialResponse = responseBuilder.ToString(),
+                            ProcessedTokens = responseBuilder.Length / 4 // Rough token estimate
+                        });
+                    }
+                }
+            }
+
+            var reviewText = responseBuilder.ToString();
+
+            // Report: Parsing
+            onProgress?.Invoke(new ReviewProgressUpdate
+            {
+                Type = ReviewProgressType.ParsingResults,
+                Message = "Parsing review results..."
+            });
+
+            var results = ParseReviewResponse(reviewText, patches);
+
+            // Add code snippets
+            foreach (var result in results)
+            {
+                result.CodeSnippet = ExtractCodeSnippet(patches, result.FilePath, result.LineNumber);
+            }
+
+            // Report: Completed
+            onProgress?.Invoke(new ReviewProgressUpdate
+            {
+                Type = ReviewProgressType.Completed,
+                Message = $"Review complete! Found {results.Count} issue(s).",
+                PartialResults = results
+            });
+
+            System.Diagnostics.Debug.WriteLine($"Streaming review complete: {results.Count} issues");
+            return results;
+        }
+
+        /// <summary>
+        /// Reviews code (non-streaming version for backward compatibility)
+        /// </summary>
         public async Task<List<ReviewResult>> ReviewCodeAsync(List<Patch> patches, MerlinConfig config, string repositoryPath = null)
         {
             // Store repository path for learning system
@@ -380,29 +510,37 @@ namespace AiReviewer.Shared
             sb.AppendLine("- Suggestions that might not apply to specific use case");
             sb.AppendLine("- Architectural changes that need more information");
             sb.AppendLine();
-            sb.AppendLine("🚨 WHAT TO REVIEW:");
+            sb.AppendLine("🚨 CRITICAL: WHAT TO REVIEW (READ THIS CAREFULLY!)");
             sb.AppendLine();
-            sb.AppendLine("PRIMARY: Lines marked '← NEW LINE' (changed/added code)");
-            sb.AppendLine("- Review ALL new lines for security, performance, reliability, code quality, OOP principles, C# best practices, etc.");
-            sb.AppendLine("- Check for modern C# feature usage (pattern matching, records, file-scoped namespaces)");
-            sb.AppendLine("- Verify proper async/await, LINQ optimization, and IDisposable patterns");
-            sb.AppendLine("- Look for OOP violations (encapsulation, inheritance misuse, missing polymorphism)");
+            sb.AppendLine("⚠️ CONTEXT IS FOR UNDERSTANDING ONLY - NOT FOR REVIEWING!");
+            sb.AppendLine("We provide 'FULL FILE CONTEXT' or 'PARTIAL FILE CONTEXT' so you can understand:");
+            sb.AppendLine("- The class structure, fields, and dependencies");
+            sb.AppendLine("- How the changed code fits into the bigger picture");
+            sb.AppendLine("- Naming conventions and patterns used in the file");
+            sb.AppendLine("DO NOT report issues on context lines unless the CHANGE directly breaks them!");
             sb.AppendLine();
-            sb.AppendLine("SECONDARY: Context lines DIRECTLY AFFECTED by the changes");
-            sb.AppendLine("- USE CONTEXT EXTENSIVELY - understand the full method/class purpose from surrounding code");
-            sb.AppendLine("- Analyze the broader context: class structure, method signatures, inheritance hierarchy");
-            sb.AppendLine("- If a new comment contradicts existing code in context → FLAG IT (report on the NEW comment line)");
-            sb.AppendLine("- If a new variable name conflicts with existing ones in context → FLAG IT");
-            sb.AppendLine("- If new code breaks existing logic patterns in context → FLAG IT");
-            sb.AppendLine("- If new code makes existing context code unreachable/redundant → FLAG IT");
-            sb.AppendLine("- Check if new code fits well with existing design patterns in the context");
+            sb.AppendLine("✅ ONLY REVIEW: Lines marked with '← NEW LINE' or '←CHANGED'");
+            sb.AppendLine("- These are the ONLY lines the developer modified");
+            sb.AppendLine("- Report issues ONLY on these marked lines");
+            sb.AppendLine("- Use context to UNDERSTAND, but don't review context itself");
             sb.AppendLine();
-            sb.AppendLine("DO NOT REPORT: Issues in context lines unrelated to the changes");
-            sb.AppendLine("- Old code with Console.WriteLine that wasn't touched → IGNORE");
-            sb.AppendLine("- Old spelling errors in unchanged comments → IGNORE");
-            sb.AppendLine("- Existing performance issues not related to changes → IGNORE");
+            sb.AppendLine("❌ DO NOT REVIEW OR REPORT:");
+            sb.AppendLine("- Lines WITHOUT '← NEW LINE' or '←CHANGED' markers");
+            sb.AppendLine("- Old code in the header/context sections");
+            sb.AppendLine("- Existing issues in unchanged code (even if you see Console.WriteLine, spelling errors, etc.)");
+            sb.AppendLine("- Pre-existing code smells that weren't introduced by this change");
             sb.AppendLine();
-            sb.AppendLine("FOCUS: What did the developer CHANGE and how does it impact surrounding code?");
+            sb.AppendLine("🎯 YOUR FOCUS:");
+            sb.AppendLine("1. Find issues in the CHANGED lines only");
+            sb.AppendLine("2. Use context to understand if the change is correct");
+            sb.AppendLine("3. Report if a change BREAKS or CONFLICTS with existing code");
+            sb.AppendLine("4. But NEVER report issues on unchanged lines themselves");
+            sb.AppendLine();
+            sb.AppendLine("Example of CORRECT behavior:");
+            sb.AppendLine("- Changed line has Console.WriteLine → REPORT IT ✅");
+            sb.AppendLine("- Context line has Console.WriteLine → IGNORE IT ❌");
+            sb.AppendLine("- Changed line duplicates logic from context → REPORT on changed line ✅");
+            sb.AppendLine("- Context has old bug unrelated to change → IGNORE IT ❌");
             sb.AppendLine();
             sb.AppendLine("Review Guidelines:");
             sb.AppendLine("- Review EVERY line marked '← NEW LINE' thoroughly with ALL checklist categories");
@@ -469,11 +607,141 @@ namespace AiReviewer.Shared
             sb.AppendLine("Code Changes:");
             sb.AppendLine();
 
-            // Add each file's diff
+            // Add each file's diff WITH full file context
             foreach (var patch in patches)
             {
                 sb.AppendLine($"=== File: {patch.FilePath} ===");
                 
+                // Try to include full file context for better AI understanding
+                if (!string.IsNullOrEmpty(_currentRepositoryPath))
+                {
+                    var fullFilePath = Path.Combine(_currentRepositoryPath, patch.FilePath.Replace("/", "\\"));
+                    if (File.Exists(fullFilePath))
+                    {
+                        try
+                        {
+                            var fileContent = File.ReadAllText(fullFilePath);
+                            var lines = fileContent.Split('\n');
+                            
+                            // Get the changed line numbers from hunks
+                            var changedLines = patch.Hunks.SelectMany(h => 
+                            {
+                                var result = new List<int>();
+                                int lineNum = h.StartLine;
+                                foreach (var l in h.Lines)
+                                {
+                                    if (l.StartsWith("+")) result.Add(lineNum);
+                                    if (l.StartsWith(" ") || l.StartsWith("+")) lineNum++;
+                                }
+                                return result;
+                            }).ToList();
+                            
+                            if (lines.Length <= 1000 && fileContent.Length <= 40000)
+                            {
+                                // Small file: include everything
+                                sb.AppendLine("FULL FILE CONTEXT (for better understanding):");
+                                sb.AppendLine("```");
+                                int lineNum = 1;
+                                foreach (var line in lines)
+                                {
+                                    sb.AppendLine($"{lineNum,4}: {line.TrimEnd('\r')}");
+                                    lineNum++;
+                                }
+                                sb.AppendLine("```");
+                                sb.AppendLine();
+                            }
+                            else
+                            {
+                                // Large file: include smart context (header + separate windows around changes)
+                                sb.AppendLine($"PARTIAL FILE CONTEXT (file has {lines.Length} lines, showing relevant sections):");
+                                sb.AppendLine("```");
+                                
+                                // Always include first 200 lines (imports, class declaration, fields, constructor)
+                                int headerLines = Math.Min(200, lines.Length);
+                                for (int i = 0; i < headerLines; i++)
+                                {
+                                    sb.AppendLine($"{i + 1,4}: {lines[i].TrimEnd('\r')}");
+                                }
+                                
+                                // Build separate context windows for each cluster of changes
+                                // Changes within 100 lines of each other are merged into one window
+                                if (changedLines.Any())
+                                {
+                                    var sortedChanges = changedLines.OrderBy(x => x).ToList();
+                                    var contextWindows = new List<(int Start, int End, List<int> Changes)>();
+                                    
+                                    // Group changes into clusters (merge if within 100 lines)
+                                    int windowStart = sortedChanges[0];
+                                    int windowEnd = sortedChanges[0];
+                                    var windowChanges = new List<int> { sortedChanges[0] };
+                                    
+                                    for (int i = 1; i < sortedChanges.Count; i++)
+                                    {
+                                        if (sortedChanges[i] - windowEnd <= 100)
+                                        {
+                                            // Merge into current window
+                                            windowEnd = sortedChanges[i];
+                                            windowChanges.Add(sortedChanges[i]);
+                                        }
+                                        else
+                                        {
+                                            // Save current window, start new one
+                                            contextWindows.Add((windowStart, windowEnd, windowChanges));
+                                            windowStart = sortedChanges[i];
+                                            windowEnd = sortedChanges[i];
+                                            windowChanges = new List<int> { sortedChanges[i] };
+                                        }
+                                    }
+                                    // Add the last window
+                                    contextWindows.Add((windowStart, windowEnd, windowChanges));
+                                    
+                                    int lastEndLine = headerLines;
+                                    
+                                    foreach (var window in contextWindows)
+                                    {
+                                        int contextStart = Math.Max(lastEndLine + 1, window.Start - 50);
+                                        int contextEnd = Math.Min(lines.Length, window.End + 50);
+                                        
+                                        // Show omitted lines indicator
+                                        if (contextStart > lastEndLine + 1)
+                                        {
+                                            sb.AppendLine();
+                                            sb.AppendLine($"...[lines {lastEndLine + 1}-{contextStart - 1} omitted] ...");
+                                            sb.AppendLine();
+                                        }
+                                        
+                                        // Output context window
+                                        for (int i = contextStart - 1; i < contextEnd && i < lines.Length; i++)
+                                        {
+                                            var marker = window.Changes.Contains(i + 1) ? " ←CHANGED" : "";
+                                            sb.AppendLine($"{i + 1,4}: {lines[i].TrimEnd('\r')}{marker}");
+                                        }
+                                        
+                                        lastEndLine = contextEnd;
+                                    }
+                                    
+                                    // Show trailing omitted lines
+                                    if (lastEndLine < lines.Length)
+                                    {
+                                        sb.AppendLine();
+                                        sb.AppendLine($"...[lines {lastEndLine + 1}-{lines.Length} omitted] ...");
+                                    }
+                                }
+                                else if (lines.Length > headerLines)
+                                {
+                                    sb.AppendLine();
+                                    sb.AppendLine($"...[lines {headerLines + 1}-{lines.Length} omitted] ...");
+                                }
+                                
+                                sb.AppendLine("```");
+                                sb.AppendLine();
+                            }
+                        }
+                        catch { /* Ignore file read errors */ }
+                    }
+                }
+                
+                sb.AppendLine("CHANGED LINES (review these specifically):");
                 foreach (var hunk in patch.Hunks)
                 {
                     sb.AppendLine($"Starting at line {hunk.StartLine}:");

@@ -156,7 +156,22 @@ namespace AiReviewer.VSIX
                     aiService.SetTeamApiClient(apiClient);
                 }
 
-                var results = await aiService.ReviewCodeAsync(patches, cfg, repo);
+                // Get tool window for streaming progress updates
+                var toolWindowControl = await GetToolWindowControlAsync();
+
+                // Use streaming API with progress updates
+                var results = await aiService.ReviewCodeWithStreamingAsync(patches, cfg, repo, progress =>
+                {
+                    // Update UI on main thread
+                    ThreadHelper.JoinableTaskFactory.Run(async () =>
+                    {
+                        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                        toolWindowControl?.ShowStreamingProgress(progress);
+                    });
+                });
+
+                // Hide streaming progress
+                toolWindowControl?.HideStreamingProgress();
 
                 // DEBUG: Show what we got from AI
                 System.Diagnostics.Debug.WriteLine($"AI returned {results.Count} issues");
@@ -240,6 +255,26 @@ namespace AiReviewer.VSIX
 
             var control = window.Content as AiReviewerToolWindowControl;
             control?.ShowResults(results);
+        }
+
+        /// <summary>
+        /// Gets the tool window control for streaming progress updates
+        /// </summary>
+        private static async Task<AiReviewerToolWindowControl> GetToolWindowControlAsync()
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            var package = AiReviewerPackage.Instance;
+            if (package == null) return null;
+
+            var window = package.FindToolWindow(typeof(AiReviewerToolWindow), 0, true);
+            if (window?.Frame == null) return null;
+
+            // Show the window
+            var windowFrame = (IVsWindowFrame)window.Frame;
+            Microsoft.VisualStudio.ErrorHandler.ThrowOnFailure(windowFrame.Show());
+
+            return window.Content as AiReviewerToolWindowControl;
         }
     }
 }

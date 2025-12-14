@@ -31,6 +31,72 @@ namespace AiReviewer.VSIX
             }
         }
 
+        /// <summary>
+        /// Shows streaming progress in the UI
+        /// </summary>
+        public void ShowStreamingProgress(ReviewProgressUpdate progress)
+        {
+            // Must be called on UI thread
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => ShowStreamingProgress(progress));
+                return;
+            }
+
+            StreamingProgressPanel.Visibility = Visibility.Visible;
+
+            switch (progress.Type)
+            {
+                case ReviewProgressType.Started:
+                    StreamingStatusIcon.Text = "🚀";
+                    StreamingStatusText.Text = progress.Message;
+                    StreamingProgressBar.IsIndeterminate = true;
+                    StreamingDetailsText.Text = $"Files to review: {progress.TotalFiles}";
+                    break;
+
+                case ReviewProgressType.BuildingPrompt:
+                    StreamingStatusIcon.Text = "📝";
+                    StreamingStatusText.Text = progress.Message;
+                    StreamingDetailsText.Text = "Reading file context and building AI prompt...";
+                    break;
+
+                case ReviewProgressType.CallingAI:
+                    StreamingStatusIcon.Text = "🤖";
+                    StreamingStatusText.Text = progress.Message;
+                    StreamingDetailsText.Text = "Waiting for Azure OpenAI response...";
+                    break;
+
+                case ReviewProgressType.Streaming:
+                    StreamingStatusIcon.Text = "📡";
+                    StreamingStatusText.Text = progress.Message;
+                    StreamingDetailsText.Text = $"Tokens received: ~{progress.ProcessedTokens}";
+                    break;
+
+                case ReviewProgressType.ParsingResults:
+                    StreamingStatusIcon.Text = "🔍";
+                    StreamingStatusText.Text = progress.Message;
+                    StreamingDetailsText.Text = "Extracting issues from AI response...";
+                    break;
+
+                case ReviewProgressType.Completed:
+                    StreamingProgressPanel.Visibility = Visibility.Collapsed;
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Hides the streaming progress panel
+        /// </summary>
+        public void HideStreamingProgress()
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => HideStreamingProgress());
+                return;
+            }
+            StreamingProgressPanel.Visibility = Visibility.Collapsed;
+        }
+
         public void ShowResults(List<ReviewResult> results)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
