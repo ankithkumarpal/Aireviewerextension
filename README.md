@@ -82,17 +82,3 @@ Found a bug or have a feature request? Please open an issue!
 ## License
 
 MIT License - See LICENSE file for details
-
-## Author
-
-**Ankith Pal**
-- GitHub: [@ankithkumarpal](https://github.com/ankithkumarpal)
-- LinkedIn: [ankithpal](https://linkedin.com/in/ankithpal)
-
-## Hackathon Project
-
-Built for **LIVE+ Network Fabric Hackathon 2025**
-
----
-
-** If you find this useful, please star the repository!**
