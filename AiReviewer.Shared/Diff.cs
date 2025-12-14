@@ -41,7 +41,9 @@ namespace AiReviewer.Shared
                     FileName = "git",
                     Arguments = "rev-parse --show-toplevel",
                     RedirectStandardOutput = true,
+                    RedirectStandardError = true,
                     UseShellExecute = false,
+                    CreateNoWindow = true,
                     WorkingDirectory = startDirectory ?? Directory.GetCurrentDirectory()
                 };
                 using (var p = Process.Start(psi))
@@ -62,7 +64,9 @@ namespace AiReviewer.Shared
                 Arguments = "diff --cached --unified=30",  // Get 30 lines of context for comprehensive AI understanding
                 WorkingDirectory = repoRoot,
                 RedirectStandardOutput = true,
-                UseShellExecute = false
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
             };
             using (var p = Process.Start(psi))
             {

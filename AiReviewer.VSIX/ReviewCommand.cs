@@ -1,279 +1,77 @@
-﻿
-using System;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
-using AiReviewer.Shared;
-using AiReviewer.Shared.Services;
-using AiReviewer.Shared.Models;
-using EnvDTE;
-using EnvDTE80;
 
 namespace AiReviewer.VSIX
 {
+    /// <summary>
+    /// Handles the "Review Staged Changes" menu command from Tools menu
+    /// </summary>
     internal static class ReviewCommand
     {
-        private static AiReviewErrorListProvider _errorListProvider;
-
+        /// <summary>
+        /// Called from menu command - opens tool window and starts review
+        /// </summary>
         public static void Execute(object sender, EventArgs e)
         {
-            ThreadHelper.JoinableTaskFactory.Run(async () => await RunAsync());
-        }
-
-        public static async Task RunAsync()
-        {
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
-            string workingDir = null;
-
-            // Try to get the current working directory from VS
-            var dte = ServiceProvider.GlobalProvider.GetService(typeof(DTE)) as DTE;
+            ThreadHelper.ThrowIfNotOnUIThread();
             
-            // Try solution directory first
-            if (dte?.Solution != null && !string.IsNullOrEmpty(dte.Solution.FullName))
-            {
-                workingDir = Path.GetDirectoryName(dte.Solution.FullName);
-            }
-            else if (dte?.ActiveDocument?.Path != null)
-            {
-                // Use active document's path if in folder mode
-                workingDir = dte.ActiveDocument.Path;
-            }
-            else
-            {
-                // Last resort: check if there's any open document
-                if (dte?.Documents != null && dte.Documents.Count > 0)
-                {
-                    try
-                    {
-                        workingDir = dte.Documents.Item(1).Path;
-                    }
-                    catch { }
-                }
-                
-                // If still no working dir, try to get it from solution (even if it's empty in folder mode)
-                if (string.IsNullOrEmpty(workingDir) && dte?.Solution?.FullName != null)
-                {
-                    // In folder mode, Solution.FullName might be the folder path
-                    var solPath = dte.Solution.FullName;
-                    if (Directory.Exists(solPath))
-                    {
-                        workingDir = solPath;
-                    }
-                    else if (!string.IsNullOrEmpty(solPath))
-                    {
-                        workingDir = Path.GetDirectoryName(solPath);
-                    }
-                }
-            }
-
-            if (string.IsNullOrEmpty(workingDir))
-            {
-                VsShellUtilities.ShowMessageBox(ServiceProvider.GlobalProvider,
-                    "Could not determine workspace folder. Please open a file from your git repository, or open a solution.",
-                    "AI Reviewer",
-                    OLEMSGICON.OLEMSGICON_WARNING,
-                    OLEMSGBUTTON.OLEMSGBUTTON_OK,
-                    OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
-                return;
-            }
-
-            var repo = GitDiff.FindRepoRoot(workingDir);
-            if (string.IsNullOrEmpty(repo))
-            {
-                VsShellUtilities.ShowMessageBox(ServiceProvider.GlobalProvider,
-                    $"No git repo found starting from:\n{workingDir}",
-                    "AI Reviewer",
-                    OLEMSGICON.OLEMSGICON_WARNING,
-                    OLEMSGBUTTON.OLEMSGBUTTON_OK,
-                    OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
-                return;
-            }
-
-            // Get staged changes
-            var diff = GitDiff.GetStagedUnifiedDiff(repo);
-            var patches = GitDiff.ParseUnified(diff);
-
-            if (patches.Count == 0)
-            {
-                VsShellUtilities.ShowMessageBox(ServiceProvider.GlobalProvider,
-                    "No staged changes found. Please stage your changes with 'git add' first.",
-                    "AI Reviewer",
-                    OLEMSGICON.OLEMSGICON_WARNING,
-                    OLEMSGBUTTON.OLEMSGBUTTON_OK,
-                    OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
-                return;
-            }
-
-            StagedServices.Initialize(patches);
-
-            // Load project config from local YAML file
-            var cfgPath = Path.Combine(repo, ".config", "merlinBot", "PullRequestAssistant.yaml");
-            MerlinConfig cfg = null;
-            if (File.Exists(cfgPath))
-            {
-                cfg = MerlinConfigLoader.Load(cfgPath);
-            }
-            else
-            {
-                // Use empty config if no YAML file exists
-                cfg = new MerlinConfig();
-            }
-
-            // Show progress
-            VsShellUtilities.ShowMessageBox(ServiceProvider.GlobalProvider,
-                $"Analyzing {patches.Count} file(s) with AI...\n\nThis may take a few seconds.",
-                "AI Reviewer",
-                OLEMSGICON.OLEMSGICON_INFO,
-                OLEMSGBUTTON.OLEMSGBUTTON_OK,
-                OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
-
             try
             {
-                // Fetch AI credentials from centralized Azure API (hardcoded config for NNF team)
-                var apiClient = new TeamLearningApiClient(AppConfig.ApiUrl, AppConfig.ApiKey);
-                var aiConfig = await apiClient.GetAiConfigAsync();
+                System.Diagnostics.Debug.WriteLine("[ReviewCommand] Execute called from menu");
+                
+                // Open the tool window
+                var package = AiReviewerPackage.Instance;
+                if (package == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("[ReviewCommand] Package instance is null");
+                    return;
+                }
 
-                if (!aiConfig.IsValid)
+                var window = package.FindToolWindow(typeof(AiReviewerToolWindow), 0, true);
+                if (window?.Frame == null)
                 {
                     VsShellUtilities.ShowMessageBox(ServiceProvider.GlobalProvider,
-                        $"Failed to get AI credentials from server:\n{aiConfig.Error}",
-                        "AI Reviewer - Error",
-                        OLEMSGICON.OLEMSGICON_CRITICAL,
+                        "Could not create AI Reviewer tool window.",
+                        "AI Reviewer",
+                        OLEMSGICON.OLEMSGICON_WARNING,
                         OLEMSGBUTTON.OLEMSGBUTTON_OK,
                         OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
                     return;
                 }
 
-                // Call AI review service with centralized credentials
-                var aiService = new AiReviewService(aiConfig.AzureOpenAIEndpoint, aiConfig.AzureOpenAIKey, aiConfig.DeploymentName);
+                // Show the tool window
+                var windowFrame = (IVsWindowFrame)window.Frame;
+                Microsoft.VisualStudio.ErrorHandler.ThrowOnFailure(windowFrame.Show());
                 
-                // Set Team API client for pattern retrieval (always enabled for NNF team)
-                if (AppConfig.EnableTeamLearning)
+                System.Diagnostics.Debug.WriteLine("[ReviewCommand] Tool window shown");
+
+                // Get the control and trigger review
+                var control = GetControlFromWindow(window);
+                if (control != null)
                 {
-                    aiService.SetTeamApiClient(apiClient);
-                }
-
-                // Get tool window for streaming progress updates
-                var toolWindowControl = await GetToolWindowControlAsync();
-
-                // Use streaming API with progress updates
-                var results = await aiService.ReviewCodeWithStreamingAsync(patches, cfg, repo, progress =>
-                {
-                    // Update UI on main thread
-                    ThreadHelper.JoinableTaskFactory.Run(async () =>
-                    {
-                        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                        toolWindowControl?.ShowStreamingProgress(progress);
-                    });
-                });
-
-                // Hide streaming progress
-                toolWindowControl?.HideStreamingProgress();
-
-                // DEBUG: Show what we got from AI
-                System.Diagnostics.Debug.WriteLine($"AI returned {results.Count} issues");
-
-                // Set repository path for all results
-                foreach (var result in results)
-                {
-                    result.RepositoryPath = repo;
-                }
-
-                // Show results in Tool Window
-                await ShowToolWindowWithResultsAsync(results);
-
-                // Show quick summary notification
-                if (results.Count == 0)
-                {
-                    System.Windows.MessageBox.Show(
-                        "✅ No issues found!\n\nYour staged changes look good.",
-                        "AI Code Reviewer",
-                        System.Windows.MessageBoxButton.OK,
-                        System.Windows.MessageBoxImage.Information);
+                    System.Diagnostics.Debug.WriteLine("[ReviewCommand] Triggering review...");
+                    // Trigger the review button click programmatically
+                    control.TriggerReview();
                 }
                 else
                 {
-                    var highCount = results.Count(r => r.Severity == "High");
-                    var mediumCount = results.Count(r => r.Severity == "Medium");
-                    var lowCount = results.Count(r => r.Severity == "Low");
-                    
-                    var summary = $"Found {results.Count} issue(s) in staged changes:\n\n";
-                    if (highCount > 0) summary += $"High: {highCount}\n";
-                    if (mediumCount > 0) summary += $"Medium: {mediumCount}\n";
-                    if (lowCount > 0) summary += $"Low: {lowCount}\n";
-                    summary += "\n✓ Review results displayed in AI Code Reviewer window.";
-                    
-                    System.Windows.MessageBox.Show(
-                        summary,
-                        "AI Reviewer",
-                        System.Windows.MessageBoxButton.OK,
-                        System.Windows.MessageBoxImage.Information);
+                    System.Diagnostics.Debug.WriteLine("[ReviewCommand] Could not get control from window");
                 }
             }
             catch (Exception ex)
             {
-                VsShellUtilities.ShowMessageBox(ServiceProvider.GlobalProvider,
-                    $"Error during AI review:\n{ex.Message}",
-                    "AI Reviewer - Error",
-                    OLEMSGICON.OLEMSGICON_CRITICAL,
-                    OLEMSGBUTTON.OLEMSGBUTTON_OK,
-                    OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+                System.Diagnostics.Debug.WriteLine($"[ReviewCommand] Error: {ex.Message}");
             }
         }
 
-        private static async Task ShowToolWindowWithResultsAsync(System.Collections.Generic.List<ReviewResult> results)
+        private static AiReviewerToolWindowControl GetControlFromWindow(ToolWindowPane window)
         {
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
-            var package = AiReviewerPackage.Instance;
-            if (package == null)
+            // The window.Content might be a Border wrapping the control
+            if (window.Content is System.Windows.Controls.Border border)
             {
-                System.Windows.MessageBox.Show(
-                    "Could not access AI Reviewer package.",
-                    "AI Reviewer - Error",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Error);
-                return;
+                return border.Child as AiReviewerToolWindowControl;
             }
-
-            var window = package.FindToolWindow(typeof(AiReviewerToolWindow), 0, true);
-            if (window?.Frame == null)
-            {
-                System.Windows.MessageBox.Show(
-                    "Could not create tool window.",
-                    "AI Reviewer - Error",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Error);
-                return;
-            }
-
-            var windowFrame = (IVsWindowFrame)window.Frame;
-            Microsoft.VisualStudio.ErrorHandler.ThrowOnFailure(windowFrame.Show());
-
-            var control = window.Content as AiReviewerToolWindowControl;
-            control?.ShowResults(results);
-        }
-
-        /// <summary>
-        /// Gets the tool window control for streaming progress updates
-        /// </summary>
-        private static async Task<AiReviewerToolWindowControl> GetToolWindowControlAsync()
-        {
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
-            var package = AiReviewerPackage.Instance;
-            if (package == null) return null;
-
-            var window = package.FindToolWindow(typeof(AiReviewerToolWindow), 0, true);
-            if (window?.Frame == null) return null;
-
-            // Show the window
-            var windowFrame = (IVsWindowFrame)window.Frame;
-            Microsoft.VisualStudio.ErrorHandler.ThrowOnFailure(windowFrame.Show());
-
             return window.Content as AiReviewerToolWindowControl;
         }
     }

@@ -3,10 +3,9 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:vsshell="clr-namespace:Microsoft.VisualStudio.Shell;assembly=Microsoft.VisualStudio.Shell.15.0"
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="400"
-             Background="{DynamicResource {x:Static vsshell:VsBrushes.WindowKey}}">
+             Background="#1E1E1E">
     
     <UserControl.Resources>
         <!-- Filter Toggle Button Style -->
@@ -45,9 +44,154 @@
                 </MultiTrigger>
             </Style.Triggers>
         </Style>
+        
+        <!-- Blue Button Style (Apply Fix, Review) -->
+        <Style x:Key="BlueButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#0E639C"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="3" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#1177BB"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#0D5A8C"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        
+        <!-- Gray Button Style (Open File, Stats) -->
+        <Style x:Key="GrayButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#3E3E42"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="3" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#505053"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#333337"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        
+        <!-- Green Button Style (Helpful) -->
+        <Style x:Key="GreenButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#2D5A27"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="3" Padding="{TemplateBinding Padding}" Opacity="{TemplateBinding Opacity}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#3A7A32"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#244A1F"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#1E3D1A"/>
+                    <Setter Property="Foreground" Value="#888888"/>
+                    <Setter Property="Cursor" Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        
+        <!-- Red Button Style (Not Helpful) -->
+        <Style x:Key="RedButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#8B3A3A"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="3" Padding="{TemplateBinding Padding}" Opacity="{TemplateBinding Opacity}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#A84848"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#6E2E2E"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#5C2626"/>
+                    <Setter Property="Foreground" Value="#888888"/>
+                    <Setter Property="Cursor" Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        
+        <!-- Yellow/Olive Button Style (Correct It) -->
+        <Style x:Key="YellowButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#5A5A2D"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="3" Padding="{TemplateBinding Padding}" Opacity="{TemplateBinding Opacity}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#7A7A3D"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#4A4A24"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#3D3D1E"/>
+                    <Setter Property="Foreground" Value="#888888"/>
+                    <Setter Property="Cursor" Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
     
-    <Grid>
+    <Grid Background="#1E1E1E">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -56,34 +200,34 @@
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <StackPanel Grid.Row="0" Background="{DynamicResource {x:Static vsshell:VsBrushes.CommandBarGradientBeginKey}}">
+        <StackPanel Grid.Row="0" Background="#2D2D30">
             <TextBlock Text="AI Code Review Results" FontSize="16" FontWeight="Bold" 
                        Margin="10"
-                       Foreground="{DynamicResource {x:Static vsshell:VsBrushes.WindowTextKey}}"/>
+                       Foreground="#FFFFFF"/>
             <TextBlock Name="SummaryText" Text="No results yet. Click 'Review Staged Changes' to start." 
                        Margin="10,0,10,5" FontSize="11"
-                       Foreground="{DynamicResource {x:Static vsshell:VsBrushes.WindowTextKey}}"/>
+                       Foreground="#CCCCCC"/>
             
-            <!-- Streaming Progress Panel -->
+            <!-- Streaming Progress Panel - Shows during review -->
             <Border Name="StreamingProgressPanel" Visibility="Collapsed" 
-                    Background="#1E1E2E" Margin="10,5,10,10" CornerRadius="5" Padding="10">
+                    Background="#252535" Margin="10,5,10,10" CornerRadius="5" Padding="10">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <TextBlock Name="StreamingStatusIcon" Text="⏳" FontSize="16" Margin="0,0,8,0"/>
-                        <TextBlock Name="StreamingStatusText" Text="Starting review..." 
+                        <TextBlock Name="StreamingStatusIcon" Text="⏳" FontSize="16" Margin="0,0,8,0" Foreground="#FFFFFF"/>
+                        <TextBlock Name="StreamingStatusText" Text="Waiting for review..." 
                                    FontSize="12" Foreground="#4EC9B0" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <ProgressBar Name="StreamingProgressBar" Height="4" IsIndeterminate="True"
-                                 Background="#333" Foreground="#0E639C"/>
-                    <TextBlock Name="StreamingDetailsText" Text="" FontSize="10" 
-                               Foreground="#888" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                    <ProgressBar Name="StreamingProgressBar" Height="6" IsIndeterminate="True"
+                                 Background="#333333" Foreground="#0E639C"/>
+                    <TextBlock Name="StreamingDetailsText" Text="Click 'Review Staged Changes' to start" FontSize="10" 
+                               Foreground="#888888" Margin="0,5,0,0" TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
             
             <!-- Filter Buttons -->
             <StackPanel Name="FilterPanel" Orientation="Horizontal" Margin="10,0,10,10" Visibility="Collapsed">
                 <TextBlock Text="Filter:" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"
-                           Foreground="{DynamicResource {x:Static vsshell:VsBrushes.GrayTextKey}}"/>
+                           Foreground="#888888"/>
                 <ToggleButton Name="FilterAllButton" Content="All" IsChecked="True" Click="FilterButton_Click"
                               Style="{StaticResource FilterToggleButtonStyle}" Tag="All"/>
                 <ToggleButton Name="FilterHighButton" Content="🔴 High" Click="FilterButton_Click"
@@ -119,31 +263,26 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     
-                    <!-- Accuracy -->
                     <StackPanel Grid.Column="0" Grid.Row="0" Margin="0,0,10,8">
                         <TextBlock Text="Overall Accuracy" Foreground="#888" FontSize="10"/>
                         <TextBlock Name="AccuracyText" Text="--%" FontSize="20" FontWeight="Bold" Foreground="#4EC9B0"/>
                     </StackPanel>
                     
-                    <!-- Patterns -->
                     <StackPanel Grid.Column="1" Grid.Row="0" Margin="0,0,0,8">
                         <TextBlock Text="Learned Patterns" Foreground="#888" FontSize="10"/>
                         <TextBlock Name="PatternsText" Text="--" FontSize="20" FontWeight="Bold" Foreground="#DCDCDC"/>
                     </StackPanel>
                     
-                    <!-- Feedback Count -->
                     <StackPanel Grid.Column="0" Grid.Row="1" Margin="0,0,10,8">
                         <TextBlock Text="Total Feedback" Foreground="#888" FontSize="10"/>
                         <TextBlock Name="FeedbackCountText" Text="--" FontSize="16" FontWeight="Bold" Foreground="#DCDCDC"/>
                     </StackPanel>
                     
-                    <!-- Helpful Rate -->
                     <StackPanel Grid.Column="1" Grid.Row="1" Margin="0,0,0,8">
                         <TextBlock Text="Helpful Rate" Foreground="#888" FontSize="10"/>
                         <TextBlock Name="HelpfulRateText" Text="--%" FontSize="16" FontWeight="Bold" Foreground="#4EC9B0"/>
                     </StackPanel>
                     
-                    <!-- Last Updated -->
                     <StackPanel Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="2">
                         <TextBlock Name="LastAnalyzedText" Text="Last analyzed: Never" 
                                    Foreground="#666" FontSize="10" FontStyle="Italic"/>
@@ -157,205 +296,63 @@
             <ItemsControl Name="ResultsList" Margin="5">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Border BorderBrush="{DynamicResource {x:Static vsshell:VsBrushes.CommandBarBorderKey}}" 
-                                BorderThickness="1" Margin="5,5,5,5" CornerRadius="5"
-                                Background="{DynamicResource {x:Static vsshell:VsBrushes.WindowKey}}">
+                        <Border BorderBrush="#3E3E42" BorderThickness="1" Margin="5,5,5,5" CornerRadius="5" Background="#252526">
                             <StackPanel Margin="10">
-                                <!-- File and Line -->
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
                                     <TextBlock Text="{Binding SeverityIcon, Mode=OneWay}" FontSize="16" Margin="0,0,5,0"/>
-                                    <TextBlock FontWeight="Bold" Foreground="{DynamicResource {x:Static vsshell:VsBrushes.WindowTextKey}}">
+                                    <TextBlock FontWeight="Bold" Foreground="#DCDCDC">
                                         <Run Text="{Binding FilePath, Mode=OneWay}"/>
                                         <Run Text=":"/>
                                         <Run Text="{Binding LineNumber, Mode=OneWay}"/>
                                     </TextBlock>
                                 </StackPanel>
 
-                                <!-- Issue -->
-                                <TextBlock Text="{Binding Issue, Mode=OneWay}" TextWrapping="Wrap" Margin="0,5" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource {x:Static vsshell:VsBrushes.WindowTextKey}}"/>
+                                <TextBlock Text="{Binding Issue, Mode=OneWay}" TextWrapping="Wrap" Margin="0,5" FontWeight="SemiBold" Foreground="#DCDCDC"/>
 
-                                <!-- Your Code -->
-                                <Border Background="#2D2D30" Margin="0,5,0,5" CornerRadius="3" 
-                                        Visibility="{Binding CodeSnippetVisibility}">
+                                <Border Background="#2D2D30" Margin="0,5,0,5" CornerRadius="3" Visibility="{Binding CodeSnippetVisibility}">
                                     <StackPanel Margin="8">
                                         <TextBlock Text="❌ Your Code:" Foreground="#E74856" FontWeight="Bold" Margin="0,0,0,5"/>
                                         <TextBlock Text="{Binding CodeSnippet, Mode=OneWay}" FontFamily="Consolas" Foreground="#DCDCDC" TextWrapping="Wrap"/>
                                     </StackPanel>
                                 </Border>
 
-                                <!-- Fixed Code -->
-                                <Border Background="#1E3A1E" Margin="0,5,0,5" CornerRadius="3"
-                                        Visibility="{Binding FixedCodeVisibility}">
+                                <Border Background="#1E3A1E" Margin="0,5,0,5" CornerRadius="3" Visibility="{Binding FixedCodeVisibility}">
                                     <StackPanel Margin="8">
                                         <TextBlock Text="✅ Fixed Code:" Foreground="#4EC9B0" FontWeight="Bold" Margin="0,0,0,5"/>
                                         <TextBlock Text="{Binding FixedCode, Mode=OneWay}" FontFamily="Consolas" Foreground="#DCDCDC" TextWrapping="Wrap"/>
                                     </StackPanel>
                                 </Border>
 
-                                <!-- Suggestion -->
                                 <StackPanel Orientation="Horizontal" Margin="0,5">
                                     <TextBlock Text="💡 " FontSize="14"/>
-                                    <TextBlock Text="{Binding Suggestion, Mode=OneWay}" TextWrapping="Wrap" 
-                                               Foreground="{DynamicResource {x:Static vsshell:VsBrushes.WindowTextKey}}"/>
+                                    <TextBlock Text="{Binding Suggestion, Mode=OneWay}" TextWrapping="Wrap" Foreground="#DCDCDC"/>
                                 </StackPanel>
 
-                                <!-- Rule and Confidence -->
                                 <StackPanel Orientation="Horizontal" Margin="0,3">
-                                    <TextBlock FontSize="11" Foreground="{DynamicResource {x:Static vsshell:VsBrushes.GrayTextKey}}" Margin="0,0,10,0">
+                                    <TextBlock FontSize="11" Foreground="#888888" Margin="0,0,10,0">
                                         <Run Text="{Binding RuleIcon, Mode=OneWay}"/>
                                         <Run Text=" Rule: "/>
                                         <Run Text="{Binding Rule, Mode=OneWay}"/>
                                     </TextBlock>
-                                    <TextBlock FontSize="11" Foreground="{DynamicResource {x:Static vsshell:VsBrushes.GrayTextKey}}">
+                                    <TextBlock FontSize="11" Foreground="#888888">
                                         <Run Text="{Binding ConfidenceIcon, Mode=OneWay}"/>
                                         <Run Text=" Confidence: "/>
                                         <Run Text="{Binding Confidence, Mode=OneWay}"/>
                                     </TextBlock>
                                 </StackPanel>
 
-                                <!-- Action Buttons -->
                                 <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                    <Button Name="ApplyFixButton" Content="🔧 Apply Fix" 
-                                            Click="ApplyFixButton_Click" Tag="{Binding}"
-                                            Margin="0,0,10,0"
-                                            Background="#0E639C" Foreground="White" BorderThickness="0"
-                                            Cursor="Hand"
-                                            Visibility="{Binding FixedCodeVisibility}">
-                                        <Button.Style>
-                                            <Style TargetType="Button">
-                                                <Setter Property="Padding" Value="10,5"/>
-                                                <Setter Property="Template">
-                                                    <Setter.Value>
-                                                        <ControlTemplate TargetType="Button">
-                                                            <Border Background="{TemplateBinding Background}" 
-                                                                    CornerRadius="3" Padding="{TemplateBinding Padding}">
-                                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                            </Border>
-                                                        </ControlTemplate>
-                                                    </Setter.Value>
-                                                </Setter>
-                                                <Style.Triggers>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter Property="Background" Value="#1177BB"/>
-                                                    </Trigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Button.Style>
-                                    </Button>
-                                    <Button Name="ViewInEditorButton" Content="📄 Open File" 
-                                            Click="ViewInEditorButton_Click" Tag="{Binding}"
-                                            Background="#3E3E42" Foreground="White" BorderThickness="0"
-                                            Cursor="Hand">
-                                        <Button.Style>
-                                            <Style TargetType="Button">
-                                                <Setter Property="Padding" Value="10,5"/>
-                                                <Setter Property="Template">
-                                                    <Setter.Value>
-                                                        <ControlTemplate TargetType="Button">
-                                                            <Border Background="{TemplateBinding Background}" 
-                                                                    CornerRadius="3" Padding="{TemplateBinding Padding}">
-                                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                            </Border>
-                                                        </ControlTemplate>
-                                                    </Setter.Value>
-                                                </Setter>
-                                                <Style.Triggers>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter Property="Background" Value="#505053"/>
-                                                    </Trigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Button.Style>
-                                    </Button>
+                                    <Button Name="ApplyFixButton" Content="🔧 Apply Fix" Click="ApplyFixButton_Click" Tag="{Binding}" Margin="0,0,10,0" Style="{StaticResource BlueButtonStyle}" Visibility="{Binding FixedCodeVisibility}"/>
+                                    <Button Name="ViewInEditorButton" Content="📄 Open File" Click="ViewInEditorButton_Click" Tag="{Binding}" Style="{StaticResource GrayButtonStyle}"/>
                                 </StackPanel>
 
-                                <!-- Feedback Buttons -->
-                                <Border BorderThickness="0,1,0,0" Margin="0,10,0,0" Padding="0,10,0,0"
-                                        BorderBrush="{DynamicResource {x:Static vsshell:VsBrushes.CommandBarBorderKey}}">
+                                <Border BorderThickness="0,1,0,0" Margin="0,10,0,0" Padding="0,10,0,0" BorderBrush="#3E3E42">
                                     <StackPanel>
-                                        <TextBlock Text="Was this review helpful?" FontSize="11" 
-                                                   Foreground="{DynamicResource {x:Static vsshell:VsBrushes.GrayTextKey}}"
-                                                   Margin="0,0,0,5"/>
+                                        <TextBlock Text="Was this review helpful?" FontSize="11" Foreground="#888888" Margin="0,0,0,5"/>
                                         <StackPanel Orientation="Horizontal">
-                                            <Button Name="HelpfulButton" Content="👍 Helpful" 
-                                                    Click="HelpfulButton_Click" Tag="{Binding}"
-                                                    Margin="0,0,8,0"
-                                                    Background="#2D5A27" Foreground="White" BorderThickness="0"
-                                                    Cursor="Hand">
-                                                <Button.Style>
-                                                    <Style TargetType="Button">
-                                                        <Setter Property="Padding" Value="8,4"/>
-                                                        <Setter Property="Template">
-                                                            <Setter.Value>
-                                                                <ControlTemplate TargetType="Button">
-                                                                    <Border Background="{TemplateBinding Background}" 
-                                                                            CornerRadius="3" Padding="{TemplateBinding Padding}">
-                                                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                                    </Border>
-                                                                </ControlTemplate>
-                                                            </Setter.Value>
-                                                        </Setter>
-                                                        <Style.Triggers>
-                                                            <Trigger Property="IsMouseOver" Value="True">
-                                                                <Setter Property="Background" Value="#3A7A33"/>
-                                                            </Trigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Button.Style>
-                                            </Button>
-                                            <Button Name="NotHelpfulButton" Content="👎 Not Helpful" 
-                                                    Click="NotHelpfulButton_Click" Tag="{Binding}"
-                                                    Margin="0,0,8,0"
-                                                    Background="#8B3A3A" Foreground="White" BorderThickness="0"
-                                                    Cursor="Hand">
-                                                <Button.Style>
-                                                    <Style TargetType="Button">
-                                                        <Setter Property="Padding" Value="8,4"/>
-                                                        <Setter Property="Template">
-                                                            <Setter.Value>
-                                                                <ControlTemplate TargetType="Button">
-                                                                    <Border Background="{TemplateBinding Background}" 
-                                                                            CornerRadius="3" Padding="{TemplateBinding Padding}">
-                                                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                                    </Border>
-                                                                </ControlTemplate>
-                                                            </Setter.Value>
-                                                        </Setter>
-                                                        <Style.Triggers>
-                                                            <Trigger Property="IsMouseOver" Value="True">
-                                                                <Setter Property="Background" Value="#A54545"/>
-                                                            </Trigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Button.Style>
-                                            </Button>
-                                            <Button Name="CorrectItButton" Content="✏️ Correct It" 
-                                                    Click="CorrectItButton_Click" Tag="{Binding}"
-                                                    Background="#5A5A2D" Foreground="White" BorderThickness="0"
-                                                    Cursor="Hand"
-                                                    ToolTip="Provide your correction to help AI learn">
-                                                <Button.Style>
-                                                    <Style TargetType="Button">
-                                                        <Setter Property="Padding" Value="8,4"/>
-                                                        <Setter Property="Template">
-                                                            <Setter.Value>
-                                                                <ControlTemplate TargetType="Button">
-                                                                    <Border Background="{TemplateBinding Background}" 
-                                                                            CornerRadius="3" Padding="{TemplateBinding Padding}">
-                                                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                                    </Border>
-                                                                </ControlTemplate>
-                                                            </Setter.Value>
-                                                        </Setter>
-                                                        <Style.Triggers>
-                                                            <Trigger Property="IsMouseOver" Value="True">
-                                                                <Setter Property="Background" Value="#7A7A3D"/>
-                                                            </Trigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Button.Style>
-                                            </Button>
+                                            <Button Name="HelpfulButton" Content="👍 Helpful" Click="HelpfulButton_Click" Tag="{Binding}" Margin="0,0,8,0" Style="{StaticResource GreenButtonStyle}"/>
+                                            <Button Name="NotHelpfulButton" Content="👎 Not Helpful" Click="NotHelpfulButton_Click" Tag="{Binding}" Margin="0,0,8,0" Style="{StaticResource RedButtonStyle}"/>
+                                            <Button Name="CorrectItButton" Content="✏️ Correct It" Click="CorrectItButton_Click" Tag="{Binding}" Style="{StaticResource YellowButtonStyle}" ToolTip="Provide your correction to help AI learn"/>
                                         </StackPanel>
                                     </StackPanel>
                                 </Border>
@@ -367,69 +364,14 @@
         </ScrollViewer>
 
         <!-- Footer Actions -->
-        <Border Grid.Row="3" Background="{DynamicResource {x:Static vsshell:VsBrushes.CommandBarGradientBeginKey}}" 
-                BorderBrush="{DynamicResource {x:Static vsshell:VsBrushes.CommandBarBorderKey}}" 
-                BorderThickness="0,1,0,0">
+        <Border Grid.Row="3" Background="#2D2D30" BorderBrush="#3E3E42" BorderThickness="0,1,0,0">
             <Grid Margin="10,6">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <Button Name="ReviewButton" Content="🔍 Review Staged Changes" 
-                        Grid.Column="0"
-                        Click="ReviewButton_Click" 
-                        HorizontalAlignment="Stretch"
-                        Margin="0,0,8,0"
-                        Background="#0E639C" Foreground="White" BorderThickness="0" FontWeight="Bold"
-                        Cursor="Hand">
-                    <Button.Style>
-                        <Style TargetType="Button">
-                            <Setter Property="Padding" Value="12,5"/>
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border Background="{TemplateBinding Background}" 
-                                                CornerRadius="3" Padding="{TemplateBinding Padding}">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                            <Style.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Background" Value="#1177BB"/>
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
-                </Button>
-                <Button Name="ShowStatsButton" Content="🧠 Stats" 
-                        Grid.Column="1"
-                        Click="ShowStatsButton_Click" 
-                        HorizontalAlignment="Right"
-                        Background="#3E3E42" Foreground="White" BorderThickness="0"
-                        Cursor="Hand">
-                    <Button.Style>
-                        <Style TargetType="Button">
-                            <Setter Property="Padding" Value="12,5"/>
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border Background="{TemplateBinding Background}" 
-                                                CornerRadius="3" Padding="{TemplateBinding Padding}">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                            <Style.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Background" Value="#505053"/>
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
-                </Button>
+                <Button Name="ReviewButton" Content="🔍 Review Staged Changes" Grid.Column="0" Click="ReviewButton_Click" HorizontalAlignment="Stretch" Margin="0,0,8,0" Style="{StaticResource BlueButtonStyle}" FontWeight="Bold" Padding="12,5"/>
+                <Button Name="ShowStatsButton" Content="🧠 Stats" Grid.Column="1" Click="ShowStatsButton_Click" HorizontalAlignment="Right" Style="{StaticResource GrayButtonStyle}" Padding="12,5"/>
             </Grid>
         </Border>
     </Grid>

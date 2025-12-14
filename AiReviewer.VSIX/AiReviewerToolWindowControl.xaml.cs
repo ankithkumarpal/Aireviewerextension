@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.VisualStudio.Shell;
@@ -22,7 +23,15 @@ namespace AiReviewer.VSIX
         {
             try
             {
+                System.Diagnostics.Debug.WriteLine("[AI Reviewer] Initializing control...");
                 InitializeComponent();
+                System.Diagnostics.Debug.WriteLine("[AI Reviewer] InitializeComponent complete");
+                
+                // Track when control is loaded and rendered
+                this.Loaded += (s, e) => 
+                {
+                    System.Diagnostics.Debug.WriteLine("[AI Reviewer] Control LOADED event fired");
+                };
             }
             catch (Exception ex)
             {
@@ -32,17 +41,39 @@ namespace AiReviewer.VSIX
         }
 
         /// <summary>
+        /// Triggers the review programmatically (called from menu command)
+        /// </summary>
+        public void TriggerReview()
+        {
+            System.Diagnostics.Debug.WriteLine("[AI Reviewer] TriggerReview called");
+            
+            // Only trigger if not already reviewing
+            if (ReviewButton.IsEnabled)
+            {
+                // Simulate button click
+                ReviewButton_Click(ReviewButton, new RoutedEventArgs());
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("[AI Reviewer] Review already in progress");
+            }
+        }
+
+        /// <summary>
         /// Shows streaming progress in the UI
         /// </summary>
         public void ShowStreamingProgress(ReviewProgressUpdate progress)
         {
+            System.Diagnostics.Debug.WriteLine($"[Progress] {progress.Type}: {progress.Message}");
+            
             // Must be called on UI thread
             if (!Dispatcher.CheckAccess())
             {
-                Dispatcher.Invoke(() => ShowStreamingProgress(progress));
+                Dispatcher.BeginInvoke(new Action(() => ShowStreamingProgress(progress)));
                 return;
             }
 
+            System.Diagnostics.Debug.WriteLine($"[Progress] Setting panel visible");
             StreamingProgressPanel.Visibility = Visibility.Visible;
 
             switch (progress.Type)
@@ -91,15 +122,24 @@ namespace AiReviewer.VSIX
         {
             if (!Dispatcher.CheckAccess())
             {
-                Dispatcher.Invoke(() => HideStreamingProgress());
+                Dispatcher.BeginInvoke(new Action(() => HideStreamingProgress()));
                 return;
             }
+            System.Diagnostics.Debug.WriteLine("[Progress] Hiding progress panel");
             StreamingProgressPanel.Visibility = Visibility.Collapsed;
+            
+            // Reset to default state
+            StreamingStatusIcon.Text = "⏳";
+            StreamingStatusText.Text = "Waiting for review...";
+            StreamingDetailsText.Text = "Click 'Review Staged Changes' to start";
         }
 
         public void ShowResults(List<ReviewResult> results)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
+
+            // Hide progress panel when showing results
+            StreamingProgressPanel.Visibility = Visibility.Collapsed;
 
             // Store all results for filtering
             _allResults = results ?? new List<ReviewResult>();
@@ -196,9 +236,166 @@ namespace AiReviewer.VSIX
             }
         }
 
-        private void ReviewButton_Click(object sender, RoutedEventArgs e)
+        private async void ReviewButton_Click(object sender, RoutedEventArgs e)
         {
-            ThreadHelper.JoinableTaskFactory.Run(async () => await ReviewCommand.RunAsync());
+            System.Diagnostics.Debug.WriteLine("=== REVIEW BUTTON CLICKED ===");
+            
+            // Disable button immediately
+            ReviewButton.IsEnabled = false;
+            ReviewButton.Content = "⏳ Reviewing...";
+            
+            // Show progress panel RIGHT AWAY
+            StreamingProgressPanel.Visibility = Visibility.Visible;
+            StreamingStatusIcon.Text = "🚀";
+            StreamingStatusText.Text = "Starting review...";
+            StreamingProgressBar.IsIndeterminate = true;
+            StreamingDetailsText.Text = "Analyzing your staged changes...";
+            
+            // FORCE the UI to render now before doing any work
+            await Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.Render);
+            
+            System.Diagnostics.Debug.WriteLine("Progress panel shown, starting review...");
+            
+            try
+            {
+                await RunReviewWithStreamingAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"ERROR: {ex}");
+                SummaryText.Text = $"❌ Error: {ex.Message}";
+                StreamingProgressPanel.Visibility = Visibility.Collapsed;
+            }
+            finally
+            {
+                ReviewButton.IsEnabled = true;
+                ReviewButton.Content = "🔍 Review Staged Changes";
+            }
+        }
+
+        private void UpdateProgress(string icon, string status, string details)
+        {
+            // Always invoke on UI thread
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(() => UpdateProgress(icon, status, details));
+                return;
+            }
+            
+            StreamingStatusIcon.Text = icon;
+            StreamingStatusText.Text = status;
+            StreamingDetailsText.Text = details;
+        }
+
+        private async Task RunReviewWithStreamingAsync()
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            UpdateProgress("📂", "Getting workspace...", "Finding solution or folder...");
+
+            var dte = ServiceProvider.GlobalProvider.GetService(typeof(DTE)) as DTE;
+            string workingDir = null;
+
+            if (dte?.Solution != null && !string.IsNullOrEmpty(dte.Solution.FullName))
+                workingDir = System.IO.Path.GetDirectoryName(dte.Solution.FullName);
+            else if (dte?.ActiveDocument?.Path != null)
+                workingDir = dte.ActiveDocument.Path;
+
+            if (string.IsNullOrEmpty(workingDir))
+            {
+                SummaryText.Text = "❌ Could not determine workspace. Open a solution or file.";
+                StreamingProgressPanel.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            UpdateProgress("🔍", "Finding git repository...", workingDir);
+            
+            // Run git operations off UI thread
+            var repo = await Task.Run(() => GitDiff.FindRepoRoot(workingDir));
+            
+            if (string.IsNullOrEmpty(repo))
+            {
+                SummaryText.Text = "❌ No git repository found.";
+                StreamingProgressPanel.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            UpdateProgress("📋", "Getting staged changes...", "Running git diff...");
+            
+            // Run git diff off UI thread
+            var (diff, patches) = await Task.Run(() => 
+            {
+                var d = GitDiff.GetStagedUnifiedDiff(repo);
+                var p = GitDiff.ParseUnified(d);
+                return (d, p);
+            });
+
+            if (patches.Count == 0)
+            {
+                SummaryText.Text = "❌ No staged changes. Use 'git add' first.";
+                StreamingProgressPanel.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            UpdateProgress("📝", $"Found {patches.Count} file(s)...", "Loading configuration...");
+
+            // Load config off UI thread
+            var (cfg, cfgPath) = await Task.Run(() =>
+            {
+                var path = System.IO.Path.Combine(repo, ".config", "merlinBot", "PullRequestAssistant.yaml");
+                var config = System.IO.File.Exists(path) ? MerlinConfigLoader.Load(path) : new MerlinConfig();
+                return (config, path);
+            });
+
+            UpdateProgress("🔐", "Getting AI credentials...", "Connecting to API...");
+
+            var apiClient = new TeamLearningApiClient(AppConfig.ApiUrl, AppConfig.ApiKey);
+            var aiConfig = await apiClient.GetAiConfigAsync();
+
+            if (!aiConfig.IsValid)
+            {
+                SummaryText.Text = $"❌ AI service error: {aiConfig.Error}";
+                StreamingProgressPanel.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            UpdateProgress("🤖", "AI is analyzing your code...", $"Reviewing {patches.Count} file(s) - this may take 10-30 seconds...");
+
+            var aiService = new AiReviewService(aiConfig.AzureOpenAIEndpoint, aiConfig.AzureOpenAIKey, aiConfig.DeploymentName);
+            if (AppConfig.EnableTeamLearning)
+                aiService.SetTeamApiClient(apiClient);
+
+            // Use streaming review with progress callback
+            var results = await aiService.ReviewCodeWithStreamingAsync(patches, cfg, repo, progress =>
+            {
+                // Update UI on dispatcher
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    switch (progress.Type)
+                    {
+                        case ReviewProgressType.BuildingPrompt:
+                            UpdateProgress("📝", "Building prompt...", "Gathering file context...");
+                            break;
+                        case ReviewProgressType.CallingAI:
+                            UpdateProgress("📡", "Sending to AI...", "Waiting for response...");
+                            break;
+                        case ReviewProgressType.Streaming:
+                            var charCount = progress.PartialResponse?.Length ?? 0;
+                            UpdateProgress("💬", "Receiving response...", $"{charCount} characters received...");
+                            break;
+                        case ReviewProgressType.ParsingResults:
+                            UpdateProgress("🔍", "Parsing results...", "Extracting issues from response...");
+                            break;
+                    }
+                }));
+            });
+
+            foreach (var result in results)
+                result.RepositoryPath = repo;
+
+            // Hide progress, show results
+            StreamingProgressPanel.Visibility = Visibility.Collapsed;
+            ShowResults(results);
         }
 
         #region Learning Stats Panel
@@ -681,7 +878,7 @@ namespace AiReviewer.VSIX
                 if (child is Button btn && btn != clickedButton)
                 {
                     btn.IsEnabled = false;
-                    btn.Opacity = 0.5;
+                    // Style handles disabled appearance - no need to change opacity
                 }
             }
         }

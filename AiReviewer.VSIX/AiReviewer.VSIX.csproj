@@ -24,6 +24,8 @@
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <!-- Force modern C# features (nullable, etc.) -->
     <LangVersion>latest</LangVersion>
+    <!-- Runtime identifier for NuGet -->
+    <RuntimeIdentifier>win</RuntimeIdentifier>
     <!-- VSIX packaging flags -->
     <GeneratePkgDefFile>true</GeneratePkgDefFile>
     <UseCodebase>true</UseCodebase>
