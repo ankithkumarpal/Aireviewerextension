@@ -187,4 +187,40 @@ namespace AiReviewer.Shared.Models
         public string Name { get; set; } = string.Empty;
         public int FeedbackCount { get; set; }
     }
+
+    // AI CONFIG (Centralized credentials from Azure)
+   
+    /// <summary>
+    /// Response from GET /api/config endpoint.
+    /// Contains Azure OpenAI credentials fetched from the centralized server.
+    /// </summary>
+    public class AiConfigApiResponse
+    {
+        /// <summary>
+        /// Azure OpenAI endpoint URL (e.g., https://your-resource.openai.azure.com/)
+        /// </summary>
+        public string AzureOpenAIEndpoint { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Azure OpenAI API key
+        /// </summary>
+        public string AzureOpenAIKey { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Deployment name (e.g., gpt-4o-mini)
+        /// </summary>
+        public string DeploymentName { get; set; } = "gpt-4o-mini";
+
+        /// <summary>
+        /// Error message if request failed
+        /// </summary>
+        public string Error { get; set; }
+
+        /// <summary>
+        /// Returns true if the config was fetched successfully
+        /// </summary>
+        public bool IsValid => !string.IsNullOrEmpty(AzureOpenAIEndpoint) && 
+                               !string.IsNullOrEmpty(AzureOpenAIKey) &&
+                               string.IsNullOrEmpty(Error);
+    }
 }

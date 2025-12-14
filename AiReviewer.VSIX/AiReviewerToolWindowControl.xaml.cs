@@ -233,20 +233,8 @@ namespace AiReviewer.VSIX
                 }
                 else
                 {
-                    // Check if team learning is available but not configured
-                    var teamOptions = AiReviewerPackage.Instance?.TeamLearningOptions;
-                    if (teamOptions != null && !teamOptions.EnableTeamLearning)
-                    {
-                        statusText = "💡 Enable Team Learning in Tools > Options > AI Reviewer";
-                    }
-                    else if (teamOptions != null && !teamOptions.IsConfigurationValid)
-                    {
-                        statusText = "⚠️ Team Learning not configured. Check Tools > Options > AI Reviewer";
-                    }
-                    else
-                    {
-                        statusText = "No feedback data yet. Rate some reviews to start learning!";
-                    }
+                    // Team learning is always enabled with hardcoded config
+                    statusText = "No feedback data yet. Rate some reviews to start learning!";
                 }
 
                 LastAnalyzedText.Text = statusText;
@@ -425,17 +413,10 @@ namespace AiReviewer.VSIX
             }
             // ═══════════════════════════════════════════════════════════════════
             
-            try
+            // Use hardcoded AppConfig (no VS Options needed)
+            if (AppConfig.EnableTeamLearning)
             {
-                var options = AiReviewerPackage.Instance?.TeamLearningOptions;
-                if (options != null && options.EnableTeamLearning && options.IsConfigurationValid)
-                {
-                    return new TeamLearningApiClient(options.ApiUrl, options.ApiKey);
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[AI Reviewer] Error getting team API client: {ex.Message}");
+                return new TeamLearningApiClient(AppConfig.ApiUrl, AppConfig.ApiKey);
             }
             return null;
         }
@@ -452,15 +433,8 @@ namespace AiReviewer.VSIX
                 return "Ankith"; // Your name for testing
             }
             
-            try
-            {
-                var options = AiReviewerPackage.Instance?.TeamLearningOptions;
-                return options?.ContributorName ?? Environment.UserName;
-            }
-            catch
-            {
-                return Environment.UserName;
-            }
+            // Use hardcoded AppConfig
+            return AppConfig.ContributorName;
         }
 
         private FeedbackManager GetFeedbackManager(string repositoryPath)

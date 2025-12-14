@@ -44,6 +44,49 @@ namespace AiReviewer.Shared.Services
             };
         }
 
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // AI CONFIG (Get centralized OpenAI credentials)
+        // ═══════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Fetches Azure OpenAI credentials from the centralized API.
+        /// This keeps credentials secure in Azure - no local config files needed!
+        /// </summary>
+        /// <returns>AI config with endpoint, key, and deployment name</returns>
+        public async Task<AiConfigApiResponse> GetAiConfigAsync()
+        {
+            try
+            {
+                var url = $"{_baseUrl}/config";
+                System.Diagnostics.Debug.WriteLine($"[AI Reviewer] Fetching AI config from: {url}");
+
+                var response = await _httpClient.GetAsync(url).ConfigureAwait(false);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var error = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    System.Diagnostics.Debug.WriteLine($"[AI Reviewer] Config fetch failed: {response.StatusCode} - {error}");
+                    return new AiConfigApiResponse { Error = $"API Error: {response.StatusCode} - {error}" };
+                }
+
+                var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var config = JsonSerializer.Deserialize<AiConfigApiResponse>(json, _jsonOptions);
+
+                if (config == null || !config.IsValid)
+                {
+                    return new AiConfigApiResponse { Error = "Invalid response from server" };
+                }
+
+                System.Diagnostics.Debug.WriteLine($"[AI Reviewer] Config fetched successfully (deployment: {config.DeploymentName})");
+                return config;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[AI Reviewer] Config fetch error: {ex.Message}");
+                return new AiConfigApiResponse { Error = ex.Message };
+            }
+        }
+
         // ─────────────────────────────────────────────────────────────────────────
         // Submit Feedback
         // ─────────────────────────────────────────────────────────────────────────

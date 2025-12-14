@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using AiReviewer.Shared;
+using AiReviewer.Shared.Services;
+using AiReviewer.Shared.Models;
 using EnvDTE;
 using EnvDTE80;
 
@@ -90,19 +92,7 @@ namespace AiReviewer.VSIX
                 return;
             }
 
-            var cfgPath = Path.Combine(repo, ".config", "merlinBot", "PullRequestAssistant.yaml");
-            if (!File.Exists(cfgPath))
-            {
-                VsShellUtilities.ShowMessageBox(ServiceProvider.GlobalProvider,
-                    $"Config not found:\n{cfgPath}\n\nRepo: {repo}\nWorking: {workingDir}",
-                    "AI Reviewer",
-                    OLEMSGICON.OLEMSGICON_WARNING,
-                    OLEMSGBUTTON.OLEMSGBUTTON_OK,
-                    OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
-                return;
-            }
-
-            var cfg = MerlinConfigLoader.Load(cfgPath);
+            // Get staged changes
             var diff = GitDiff.GetStagedUnifiedDiff(repo);
             var patches = GitDiff.ParseUnified(diff);
 
@@ -119,30 +109,17 @@ namespace AiReviewer.VSIX
 
             StagedServices.Initialize(patches);
 
-            // Load AI configuration
-            var aiConfig = AiConfigLoader.Load(repo);
-            
-            if (string.IsNullOrEmpty(aiConfig.AzureOpenAIEndpoint) || string.IsNullOrEmpty(aiConfig.AzureOpenAIKey))
+            // Load project config from local YAML file
+            var cfgPath = Path.Combine(repo, ".config", "merlinBot", "PullRequestAssistant.yaml");
+            MerlinConfig cfg = null;
+            if (File.Exists(cfgPath))
             {
-                var result = VsShellUtilities.ShowMessageBox(ServiceProvider.GlobalProvider,
-                    "Azure OpenAI is not configured.\n\nWould you like to create a sample configuration file?",
-                    "AI Reviewer - Configuration Required",
-                    OLEMSGICON.OLEMSGICON_INFO,
-                    OLEMSGBUTTON.OLEMSGBUTTON_YESNO,
-                    OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
-                
-                if (result == 6) // Yes
-                {
-                    AiConfigLoader.CreateSampleConfig(repo);
-                    var configPath = Path.Combine(repo, ".config", "ai-reviewer", "ai-reviewer-config.yaml");
-                    VsShellUtilities.ShowMessageBox(ServiceProvider.GlobalProvider,
-                        $"Sample configuration created at:\n{configPath}\n\nPlease update it with your Azure OpenAI credentials.",
-                        "AI Reviewer",
-                        OLEMSGICON.OLEMSGICON_INFO,
-                        OLEMSGBUTTON.OLEMSGBUTTON_OK,
-                        OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
-                }
-                return;
+                cfg = MerlinConfigLoader.Load(cfgPath);
+            }
+            else
+            {
+                // Use empty config if no YAML file exists
+                cfg = new MerlinConfig();
             }
 
             // Show progress
@@ -155,8 +132,30 @@ namespace AiReviewer.VSIX
 
             try
             {
-                // Call AI review service with repository path for learning system trhough user experience
+                // Fetch AI credentials from centralized Azure API (hardcoded config for NNF team)
+                var apiClient = new TeamLearningApiClient(AppConfig.ApiUrl, AppConfig.ApiKey);
+                var aiConfig = await apiClient.GetAiConfigAsync();
+
+                if (!aiConfig.IsValid)
+                {
+                    VsShellUtilities.ShowMessageBox(ServiceProvider.GlobalProvider,
+                        $"Failed to get AI credentials from server:\n{aiConfig.Error}",
+                        "AI Reviewer - Error",
+                        OLEMSGICON.OLEMSGICON_CRITICAL,
+                        OLEMSGBUTTON.OLEMSGBUTTON_OK,
+                        OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+                    return;
+                }
+
+                // Call AI review service with centralized credentials
                 var aiService = new AiReviewService(aiConfig.AzureOpenAIEndpoint, aiConfig.AzureOpenAIKey, aiConfig.DeploymentName);
+                
+                // Set Team API client for pattern retrieval (always enabled for NNF team)
+                if (AppConfig.EnableTeamLearning)
+                {
+                    aiService.SetTeamApiClient(apiClient);
+                }
+
                 var results = await aiService.ReviewCodeAsync(patches, cfg, repo);
 
                 // DEBUG: Show what we got from AI

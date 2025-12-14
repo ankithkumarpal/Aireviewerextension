@@ -66,9 +66,7 @@
     <Compile Include="AiReviewOutputPane.cs" />
     <Compile Include="CodeFixApplier.cs" />
     <Compile Include="AiReviewerToolWindow.cs" />
-    <Compile Include="TeamLearningOptionsPage.cs">
-      <SubType>Component</SubType>
-    </Compile>
+    <Compile Include="AppConfig.cs" />
     <Compile Include="AiReviewerToolWindowControl.xaml.cs">
       <DependentUpon>AiReviewerToolWindowControl.xaml</DependentUpon>
     </Compile>
