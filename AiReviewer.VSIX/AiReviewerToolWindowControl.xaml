@@ -133,56 +133,6 @@
                                    Foreground="#666" FontSize="10" FontStyle="Italic"/>
                     </StackPanel>
                 </Grid>
-                
-                <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
-                    <Button Name="RefreshStatsButton" Content="🔄 Refresh" Click="RefreshStatsButton_Click"
-                            Background="#3E3E42" Foreground="White" BorderThickness="0"
-                            Padding="8,4" Margin="0,0,8,0" Cursor="Hand" FontSize="11">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border Background="{TemplateBinding Background}" 
-                                                    CornerRadius="3" Padding="{TemplateBinding Padding}">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                                <Style.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="#505053"/>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-                    <Button Name="ClearFeedbackButton" Content="🗑️ Clear All" Click="ClearFeedbackButton_Click"
-                            Background="#5A3A3A" Foreground="White" BorderThickness="0"
-                            Padding="8,4" Cursor="Hand" FontSize="11"
-                            ToolTip="Clear all feedback data (cannot be undone)">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border Background="{TemplateBinding Background}" 
-                                                    CornerRadius="3" Padding="{TemplateBinding Padding}">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                                <Style.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="#8B3A3A"/>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-                </StackPanel>
             </StackPanel>
         </Border>
 
@@ -404,15 +354,21 @@
         <Border Grid.Row="3" Background="{DynamicResource {x:Static vsshell:VsBrushes.CommandBarGradientBeginKey}}" 
                 BorderBrush="{DynamicResource {x:Static vsshell:VsBrushes.CommandBarBorderKey}}" 
                 BorderThickness="0,1,0,0">
-            <StackPanel Margin="10">
+            <Grid Margin="10,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
                 <Button Name="ReviewButton" Content="🔍 Review Staged Changes" 
+                        Grid.Column="0"
                         Click="ReviewButton_Click" 
                         HorizontalAlignment="Stretch"
+                        Margin="0,0,8,0"
                         Background="#0E639C" Foreground="White" BorderThickness="0" FontWeight="Bold"
                         Cursor="Hand">
                     <Button.Style>
                         <Style TargetType="Button">
-                            <Setter Property="Padding" Value="15,8"/>
+                            <Setter Property="Padding" Value="12,5"/>
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="Button">
@@ -431,15 +387,15 @@
                         </Style>
                     </Button.Style>
                 </Button>
-                <Button Name="ShowStatsButton" Content="🧠 AI Learning Stats" 
+                <Button Name="ShowStatsButton" Content="🧠 Stats" 
+                        Grid.Column="1"
                         Click="ShowStatsButton_Click" 
-                        Margin="0,8,0,0"
-                        HorizontalAlignment="Stretch"
+                        HorizontalAlignment="Right"
                         Background="#3E3E42" Foreground="White" BorderThickness="0"
                         Cursor="Hand">
                     <Button.Style>
                         <Style TargetType="Button">
-                            <Setter Property="Padding" Value="10,6"/>
+                            <Setter Property="Padding" Value="12,5"/>
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="Button">
@@ -458,7 +414,7 @@
                         </Style>
                     </Button.Style>
                 </Button>
-            </StackPanel>
+            </Grid>
         </Border>
     </Grid>
 </UserControl>

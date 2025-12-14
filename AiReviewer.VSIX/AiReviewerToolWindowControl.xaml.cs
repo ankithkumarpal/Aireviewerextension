@@ -166,20 +166,6 @@ namespace AiReviewer.VSIX
             LearningStatsPanel.Visibility = Visibility.Collapsed;
         }
 
-        private void RefreshStatsButton_Click(object sender, RoutedEventArgs e)
-        {
-            RefreshLearningStats();
-        }
-
-        private void ClearFeedbackButton_Click(object sender, RoutedEventArgs e)
-        {
-            MessageBox.Show(
-                "Feedback data is stored in Azure Team Learning.\n\nTo clear team data, contact your administrator or use the Azure Portal.",
-                "Clear Feedback Data",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-        }
-
         private void RefreshLearningStats()
         {
             try
