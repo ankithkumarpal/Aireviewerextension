@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
 	<Metadata>
-		<Identity Id="AiReviewer.VSIX.ba5749da-8661-4e2f-9803-ba0fc420acd6" Version="1.1.0" Language="en-US" Publisher="Ankith Pal" />
+		<Identity Id="AiReviewer.VSIX.ba5749da-8661-4e2f-9803-ba0fc420acd6" Version="1.2.0" Language="en-US" Publisher="Ankith Pal" />
 		<DisplayName>AI Code Reviewer</DisplayName>
 		<Description xml:space="preserve">AI-powered code review for staged changes with GPT-4o support. Get instant feedback on security, performance, reliability, code quality, design patterns, and best practices with confidence scoring. One-click fixes included!</Description>
 		<MoreInfo>https://github.com/ankithkumarpal/Aireviewerextension</MoreInfo>
@@ -23,4 +23,4 @@
 	<Assets>
 		<Asset Type="Microsoft.VisualStudio.VsPackage" d:Source="Project" d:ProjectName="%CurrentProject%" Path="|%CurrentProject%;PkgdefProjectOutputGroup|" />
 	</Assets>
-</PackageManifest>
+</PackageManifest>  
