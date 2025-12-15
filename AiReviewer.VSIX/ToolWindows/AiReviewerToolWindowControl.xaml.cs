@@ -7,11 +7,14 @@ using System.Windows;
 using System.Windows.Controls;
 using Microsoft.VisualStudio.Shell;
 using EnvDTE;
-using AiReviewer.Shared;
+using AiReviewer.Shared.Enum;
 using AiReviewer.Shared.Models;
 using AiReviewer.Shared.Services;
+using AiReviewer.Shared.StaticHelper;
+using AiReviewer.VSIX.Configuration;
+using AiReviewer.VSIX.Services;
 
-namespace AiReviewer.VSIX
+namespace AiReviewer.VSIX.ToolWindows
 {
     public partial class AiReviewerToolWindowControl : UserControl
     {

@@ -7,7 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using AiReviewer.Functions.Models;
 
-namespace AiReviewer.Functions;
+namespace AiReviewer.Functions.Services;
 
 /// <summary>
 /// Azure Functions for Team Learning API

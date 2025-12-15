@@ -1,11 +1,12 @@
 using System.Net;
 using System.Text.Json;
+using AiReviewer.Functions.Models;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace AiReviewer.Functions;
+namespace AiReviewer.Functions.Services;
 
 /// <summary>
 /// Azure Function for providing AI configuration.
@@ -94,12 +95,3 @@ public class ConfigFunctions
     }
 }
 
-/// <summary>
-/// Response model for /api/config endpoint
-/// </summary>
-public class AiConfigResponse
-{
-    public string AzureOpenAIEndpoint { get; set; } = string.Empty;
-    public string AzureOpenAIKey { get; set; } = string.Empty;
-    public string DeploymentName { get; set; } = "gpt-4o-mini";
-}

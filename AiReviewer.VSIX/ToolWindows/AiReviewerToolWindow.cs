@@ -5,7 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using Microsoft.VisualStudio.Shell;
 
-namespace AiReviewer.VSIX
+namespace AiReviewer.VSIX.ToolWindows
 {
     [Guid("1B2E3F4A-5C6D-7E8F-9A0B-1C2D3E4F5A6B")]
     public class AiReviewerToolWindow : ToolWindowPane

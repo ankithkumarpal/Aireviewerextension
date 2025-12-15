@@ -1,5 +1,6 @@
 ﻿
-using AiReviewer.VSIX;
+using AiReviewer.VSIX.Commands;
+using AiReviewer.VSIX.ToolWindows;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Threading;
 using System;

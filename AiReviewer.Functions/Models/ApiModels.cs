@@ -119,7 +119,7 @@ public class LearnedPatternDto
 }
 
 /// <summary>
-/// An example for few-shot learning
+///  Example for few-shot learning
 /// </summary>
 public class FewShotExampleDto
 {

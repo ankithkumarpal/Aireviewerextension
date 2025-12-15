@@ -233,28 +233,4 @@ namespace AiReviewer.Shared.Services
             return str.Length <= maxLength ? str : str.Substring(0, maxLength) + "...";
         }
     }
-
-    /// <summary>
-    /// Statistics about the learning system
-    /// </summary>
-    public class LearningStats
-    {
-        public int TotalPatterns { get; set; }
-        public int HighConfidencePatterns { get; set; }
-        public double OverallAccuracy { get; set; }
-        public int TotalFeedbackProcessed { get; set; }
-        public DateTime LastAnalyzed { get; set; }
-        public int UniqueContributors { get; set; }
-        public FeedbackStats FeedbackStats { get; set; } = new FeedbackStats();
-        public List<RuleStat> TopRules { get; set; } = new List<RuleStat>();
-    }
-
-    /// <summary>
-    /// Statistics per rule category
-    /// </summary>
-    public class RuleStat
-    {
-        public string Rule { get; set; }
-        public int Count { get; set; }
-    }
 }

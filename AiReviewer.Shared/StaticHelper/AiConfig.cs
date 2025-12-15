@@ -1,17 +1,11 @@
+using AiReviewer.Shared.Models;
 using System;
 using System.IO;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
-namespace AiReviewer.Shared
+namespace AiReviewer.Shared.StaticHelper
 {
-    public class AiConfig
-    {
-        public string AzureOpenAIEndpoint { get; set; } = "";
-        public string AzureOpenAIKey { get; set; } = "";
-        public string DeploymentName { get; set; } = "gpt-35-turbo";
-    }
-
     public static class AiConfigLoader
     {
         private static readonly string ConfigFileName = "ai-reviewer-config.yaml";

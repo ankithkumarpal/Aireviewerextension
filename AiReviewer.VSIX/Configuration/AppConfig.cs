@@ -1,4 +1,4 @@
-namespace AiReviewer.VSIX
+namespace AiReviewer.VSIX.Configuration
 {
     /// <summary>
     /// Hardcoded configuration for NNF Hackathon.
@@ -6,15 +6,13 @@ namespace AiReviewer.VSIX
     /// </summary>
     internal static class AppConfig
     {
-        // ═══════════════════════════════════════════════════════════════════════════════
-        // HARDCODED VALUES FOR NNF TEAM
-        // ═══════════════════════════════════════════════════════════════════════════════
-        
+
         /// <summary>
         /// Azure Function API URL
         /// </summary>
         public const string ApiUrl = "https://ai-reviewer-teamlearning-apc4dvfhgxaze3h9.eastus-01.azurewebsites.net/api";
-        
+
+        // Hardcoded value need to be removed from here for security reasons. This is just for hackathon demo purpose.
         /// <summary>
         /// API Key for authentication
         /// </summary>

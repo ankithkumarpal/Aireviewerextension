@@ -1,8 +1,9 @@
 ﻿using System;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
+using AiReviewer.VSIX.ToolWindows;
 
-namespace AiReviewer.VSIX
+namespace AiReviewer.VSIX.Commands
 {
     /// <summary>
     /// Handles the "Review Staged Changes" menu command from Tools menu

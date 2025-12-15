@@ -4,10 +4,11 @@ using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Shell.TableControl;
 using Microsoft.VisualStudio.Shell.TableManager;
-using AiReviewer.Shared;
 using EnvDTE;
+using AiReviewer.Shared.Services;
+using AiReviewer.Shared.Models;
 
-namespace AiReviewer.VSIX
+namespace AiReviewer.VSIX.Services
 {
     internal class AiReviewErrorListProvider : IDisposable
     {

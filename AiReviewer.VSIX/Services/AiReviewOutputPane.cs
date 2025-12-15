@@ -2,9 +2,10 @@ using System;
 using System.Collections.Generic;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
-using AiReviewer.Shared;
+using AiReviewer.Shared.Services;
+using AiReviewer.Shared.Models;
 
-namespace AiReviewer.VSIX
+namespace AiReviewer.VSIX.Services
 {
     internal class AiReviewOutputPane
     {

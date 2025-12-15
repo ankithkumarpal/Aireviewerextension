@@ -8,60 +8,11 @@ using Azure;
 using Azure.AI.OpenAI;
 using OpenAI.Chat;
 using System.ClientModel;
-using AiReviewer.Shared.Services;
+using AiReviewer.Shared.Models;
+using AiReviewer.Shared.Enum;
 
-namespace AiReviewer.Shared
+namespace AiReviewer.Shared.Services
 {
-    public class ReviewResult
-    {
-        /// <summary>
-        /// Unique ID for tracking feedback on this review
-        /// </summary>
-        public string ReviewId { get; set; } = System.Guid.NewGuid().ToString("N");
-        
-        public string FilePath { get; set; } = "";
-        public int LineNumber { get; set; }
-        public string Severity { get; set; } = "Medium";
-        public string Confidence { get; set; } = "Medium";
-        public string Issue { get; set; } = "";
-        public string Suggestion { get; set; } = "";
-        public string Rule { get; set; } = "";
-        public string CodeSnippet { get; set; } = "";
-        public string FixedCode { get; set; } = "";
-        public string RepositoryPath { get; set; } = "";
-        
-        /// <summary>
-        /// When this review was created
-        /// </summary>
-        public System.DateTime CreatedAt { get; set; } = System.DateTime.UtcNow;
-    }
-
-    /// <summary>
-    /// Progress update types for streaming review feedback
-    /// </summary>
-    public enum ReviewProgressType
-    {
-        Started,
-        BuildingPrompt,
-        CallingAI,
-        Streaming,
-        ParsingResults,
-        Completed
-    }
-
-    /// <summary>
-    /// Progress update data for review streaming
-    /// </summary>
-    public class ReviewProgressUpdate
-    {
-        public ReviewProgressType Type { get; set; }
-        public string Message { get; set; } = "";
-        public string PartialResponse { get; set; } = "";
-        public List<ReviewResult> PartialResults { get; set; } = new List<ReviewResult>();
-        public int TotalFiles { get; set; }
-        public int ProcessedTokens { get; set; }
-    }
-
     public class AiReviewService
     {
         private readonly string _endpoint;
@@ -207,8 +158,8 @@ namespace AiReviewer.Shared
             
             // Build the prompt
             var prompt = BuildReviewPrompt(patches, config);
-            
-            // DEBUG: Log prompt length
+
+            // Debug: Log prompt length
             System.Diagnostics.Debug.WriteLine($"Prompt length: {prompt.Length} chars");
             System.Diagnostics.Debug.WriteLine($"Prompt preview (first 1000 chars):\n{prompt.Substring(0, Math.Min(1000, prompt.Length))}");
             System.Diagnostics.Debug.WriteLine($"---");
@@ -261,7 +212,7 @@ namespace AiReviewer.Shared
                 result.CodeSnippet = ExtractCodeSnippet(patches, result.FilePath, result.LineNumber);
             }
             
-            // PASS 2: Validate the fixes (DISABLED - was filtering too aggressively)
+            // PASS 2: Validate the fixes (commented this since it was filtering too aggressively result in bad review suggestion)
             // if (results.Count > 0)
             // {
             //     System.Diagnostics.Debug.WriteLine($"=== STARTING PASS 2: VALIDATION ===");
@@ -905,6 +856,8 @@ namespace AiReviewer.Shared
             return results;
         }
 
+        // Todo : For Better suggestion this check needs to be used before returning review results.
+        // Validate the suggested fixes by checking if they actually resolve the issues
         private async Task<List<ReviewResult>> ValidateFixesAsync(ChatClient chatClient, List<ReviewResult> results, List<Patch> patches)
         {
             var validatedResults = new List<ReviewResult>();

@@ -1,4 +1,5 @@
 ﻿// AiReviewer.Shared/StagedLineService.cs
+using AiReviewer.Shared.Models;
 using System.Collections.Generic;
 
 namespace AiReviewer.Shared
