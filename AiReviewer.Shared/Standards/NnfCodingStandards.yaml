@@ -1,0 +1,708 @@
+# NNF (Nexus Network Fabric) Coding Standards
+# Version: 1.0
+# Last Updated: 2025-12-16
+# Format matches StagebotConfig schema for direct deserialization
+
+version: 1
+
+include_paths:
+  - "**/*.cs"
+
+exclude_paths:
+  - "**/bin/**"
+  - "**/obj/**"
+  - "**/node_modules/**"
+  - "**/*.Designer.cs"
+  - "**/*.g.cs"
+
+inherit_central_standards: true
+
+checks:
+  # ============================================================
+  # DOCUMENTATION
+  # ============================================================
+  - id: nnf-doc-001
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Class missing XML summary documentation"
+    guidance: |
+      Every class must have a <summary> explaining its responsibility. Include links to learn.microsoft.com if additional knowledge is required.
+      Example:
+      /// <summary>
+      /// This class is responsible for processing internal requests.
+      /// </summary>
+      public class InternalRequestService : IIdentityMgrService { }
+    scope: file
+
+  - id: nnf-doc-002
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Public property/field missing XML summary"
+    guidance: "Add XML summary for each public field/property explaining its responsibility."
+    scope: file
+
+  - id: nnf-doc-003
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Public method missing complete XML documentation"
+    guidance: |
+      Public methods require:
+      - <summary>: Explain the method's responsibility
+      - <param>: Explain each parameter and its purpose
+      - <returns>: Mention possible return values
+      - <exception>: Document exceptions that could be thrown
+      Example:
+      /// <summary>
+      /// Get HttpResponseMessage for a given ARM Resource ID.
+      /// </summary>
+      /// <param name="armResourceId">ARM resource id.</param>
+      /// <returns>A Task returning HttpResponseMessage.</returns>
+      /// <exception cref="ServiceException">Generic unhandled exception</exception>
+    scope: file
+
+  # ============================================================
+  # ACCESS MODIFIERS
+  # ============================================================
+  - id: nnf-access-001
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Member should be private unless external access is required"
+    guidance: "Use private for implementation details. Start with the most restrictive modifier and only increase visibility when required. Favor the principle of least privilege."
+    scope: file
+
+  - id: nnf-access-002
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Review if public member truly needs public access"
+    guidance: "Only use public for methods forming the stable, documented API. Public members increase surface area and must be maintained for backward compatibility."
+    scope: file
+
+  # ============================================================
+  # METHOD IMPLEMENTATION
+  # ============================================================
+  - id: nnf-impl-001
+    applies_to: [".cs"]
+    severity: Error
+    description: "Use explicit types instead of 'var'"
+    guidance: "Always use explicit type declarations instead of var to improve readability and avoid ambiguity. Example: Use 'string name = GetName();' instead of 'var name = GetName();'"
+    pattern:
+      type: regex
+      value: "\\bvar\\s+\\w+\\s*="
+    scope: file
+
+  - id: nnf-impl-002
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Method exceeds recommended 50 lines"
+    guidance: "Methods should be less than 50 logical lines. Split larger methods into smaller, focused methods."
+    scope: file
+
+  - id: nnf-impl-003
+    applies_to: [".cs"]
+    severity: Info
+    description: "Add blank line before and after code blocks"
+    guidance: "Add a blank line before and after any block (if, for, foreach, while, using, try-catch). Do not add blank lines immediately after { or before }."
+    scope: file
+
+  # ============================================================
+  # EXCEPTION HANDLING
+  # ============================================================
+  - id: nnf-exc-001
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Use ServiceException for throwing application errors"
+    guidance: "Use only ServiceExceptions to throw, providing respective status-code, response-code, and self-explanatory response-message. Exceptions should only be thrown when strictly necessary."
+    scope: file
+
+  - id: nnf-exc-002
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Check cancellation after async calls"
+    guidance: |
+      Always call cancellationToken.ThrowIfCancellationRequested() immediately after long-running async calls.
+      Example:
+      var result = await _service.DoWorkAsync(cancellationToken);
+      cancellationToken.ThrowIfCancellationRequested();
+    scope: file
+
+  - id: nnf-exc-003
+    applies_to: [".cs"]
+    severity: Error
+    description: "Don't include stack trace manually in exception message"
+    guidance: "Pass the original exception as innerException when re-throwing. Never manually include exception.Message or exception.StackTrace in the new exception message."
+    pattern:
+      type: regex
+      value: "ex\\.StackTrace|ex\\.Message\\s*\\+"
+    scope: file
+
+  - id: nnf-exc-004
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Avoid generic error names"
+    guidance: "Avoid generic error names like UnexpectedError or DocumentOperationFailed. Be specific about the error condition."
+    scope: file
+
+  # ============================================================
+  # LOGGING
+  # ============================================================
+  - id: nnf-log-001
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Missing logs for failure paths"
+    guidance: "Must add logs for any failure path. Add debug/info logs for critical paths."
+    scope: file
+
+  - id: nnf-log-002
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Log entry and exit of public methods"
+    guidance: "Log entry and exit of all public methods for debugging and tracing."
+    scope: file
+
+  - id: nnf-log-003
+    applies_to: [".cs"]
+    severity: Error
+    description: "No PII or secrets in logs"
+    guidance: "Be cautious of PII and/or secret data - never log passwords, tokens, connection strings, or personal information."
+    scope: file
+
+  # ============================================================
+  # TELEMETRY
+  # ============================================================
+  - id: nnf-tel-001
+    applies_to: [".cs"]
+    severity: Info
+    description: "Use OpenTelemetry for custom metrics"
+    guidance: |
+      Instrument code and record meaningful custom metrics using the OpenTelemetry API.
+      - Use hierarchical, dot-separated naming for Meters (e.g., MyCompany.MyApp.OrderService)
+      - Follow OpenTelemetry Semantic Conventions
+      - Always specify the unit parameter (use UCUM: ms, By, {request})
+      - Choose correct instrument: Counter (increase only), UpDownCounter (up/down), Histogram (distributions)
+    scope: file
+
+  # ============================================================
+  # GENERAL PRINCIPLES
+  # ============================================================
+  - id: nnf-gen-001
+    applies_to: [".cs", ".ts", ".js"]
+    severity: Warning
+    description: "DRY violation - duplicate code detected"
+    guidance: "Don't Repeat Yourself. Refactor repeated logic into reusable methods, classes, or utilities."
+    scope: file
+
+  - id: nnf-gen-002
+    applies_to: [".cs", ".ts", ".js"]
+    severity: Info
+    description: "YAGNI - unnecessary code complexity"
+    guidance: "You Aren't Gonna Need It. If you don't need it right now, don't write it."
+    scope: file
+
+  - id: nnf-gen-003
+    applies_to: [".cs", ".ts", ".js"]
+    severity: Info
+    description: "KISS - overly complex solution"
+    guidance: "Keep It Simple. Don't add unnecessary complexities. Simpler solutions are easier to maintain."
+    scope: file
+
+  # ============================================================
+  # COMMENTS
+  # ============================================================
+  - id: nnf-cmt-001
+    applies_to: [".cs"]
+    severity: Info
+    description: "Comment describes what code does instead of why"
+    guidance: |
+      Avoid comments describing what code does - code should be self-documenting through clear naming.
+      Comments should explain WHY: business rules, algorithm choices, workarounds, design decisions.
+      Use standard tags: TODO(ADO#xxx), FIXME, HACK, NOTE, REVIEW
+    scope: file
+
+  # ============================================================
+  # COLLECTIONS
+  # ============================================================
+  - id: nnf-col-001
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Use built-in empty objects instead of new instances"
+    guidance: |
+      Use C#'s built-in empty objects:
+      - String.Empty instead of ""
+      - Array.Empty<T>() instead of new T[0]
+      - Enumerable.Empty<T>() instead of new List<T>() for empty IEnumerable
+    pattern:
+      type: list
+      value: ["new string[0]", "new List<", "return \"\";"]
+    scope: file
+
+  # ============================================================
+  # CLASSES & STRUCTS
+  # ============================================================
+  - id: nnf-cls-001
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Class should be sealed unless designed for inheritance"
+    guidance: "Nearly all classes should be sealed. The sealed modifier prevents inheritance, improves performance via JIT optimizations, and communicates clear design intent."
+    scope: file
+
+  - id: nnf-cls-002
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Avoid struct unless you know the implications"
+    guidance: "Prefer classes over structs. Use struct only for small, immutable, single-value types (like Point, Color). Misuse leads to performance issues and confusing behavior."
+    scope: file
+
+  - id: nnf-cls-003
+    applies_to: [".cs"]
+    severity: Info
+    description: "Interface only needed for DI or mocking"
+    guidance: "Avoid interfaces unless needed for dependency injection or testability/mocking. Don't create interfaces for classes with only one implementation."
+    scope: file
+
+  - id: nnf-cls-004
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Avoid static utility/helper classes"
+    guidance: "Avoid creating XXXXUtility or XXXXHelper classes. Use extension methods, instance methods on relevant classes, or injectable services instead."
+    pattern:
+      type: regex
+      value: "class\\s+\\w+(Utility|Helper|Utils)\\b"
+    scope: file
+
+  # ============================================================
+  # MEMBERS & ACCESSIBILITY
+  # ============================================================
+  - id: nnf-mem-001
+    applies_to: [".cs"]
+    severity: Info
+    description: "Static methods should be private unless they are extension methods"
+    guidance: "Prefer making all static methods private. Public static methods (except extension methods) encourage procedural style and are harder to test."
+    scope: file
+
+  - id: nnf-mem-002
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Avoid extension methods on generic/system types"
+    guidance: "Don't add extension methods to object, int, string, or unconstrained generic types. This pollutes IntelliSense and increases collision risk."
+    scope: file
+
+  # ============================================================
+  # USAGE PATTERNS
+  # ============================================================
+  - id: nnf-use-001
+    applies_to: [".cs"]
+    severity: Info
+    description: "Prefer method overloads over default argument values"
+    guidance: "Default argument values are compiled into caller code, causing versioning issues. Use method overloads for better maintainability."
+    scope: file
+
+  - id: nnf-use-002
+    applies_to: [".cs"]
+    severity: Info
+    description: "Don't assign default values to fields"
+    guidance: "Don't explicitly assign default values (0, null, false) to fields - they're automatic. Initialize only non-default values in constructors."
+    scope: file
+
+  # ============================================================
+  # NAMING CONVENTIONS
+  # ============================================================
+  - id: nnf-nam-001
+    applies_to: [".cs"]
+    severity: Info
+    description: "Methods returning null should be named XXXOrDefault"
+    guidance: "Name methods that can return null as XXXXOrDefault (e.g., GetUserOrDefault, FindItemOrDefault). This signals null is expected."
+    scope: file
+
+  - id: nnf-nam-002
+    applies_to: [".cs"]
+    severity: Info
+    description: "Fallible operations should use TryXXXX pattern"
+    guidance: "Name methods that might fail without throwing as TryXXXX (e.g., TryParse, TryGetValue). Return bool with out parameter for the result."
+    scope: file
+
+  # ============================================================
+  # ASYNC PATTERNS
+  # ============================================================
+  - id: nnf-async-001
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Unnecessary async keyword"
+    guidance: "Only use async keyword if the method truly performs async operations with await. Don't use async just to return Task.FromResult."
+    scope: file
+
+  - id: nnf-async-002
+    applies_to: [".cs"]
+    severity: Error
+    description: "Blocking call on async Task (.Wait(), .Result)"
+    guidance: "Never use Task.Wait() or Task.Result - they block and can cause deadlocks. Always use await."
+    pattern:
+      type: list
+      value: [".Result", ".Wait()", ".GetAwaiter().GetResult()"]
+    scope: file
+
+  - id: nnf-async-003
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Unnecessary Task.FromResult wrapping"
+    guidance: "Don't wrap synchronous code in Task.FromResult or Task.Run unless implementing an interface or offloading CPU-bound work."
+    scope: file
+
+  # ============================================================
+  # RETRIEVING FIRST ITEM
+  # ============================================================
+  - id: nnf-first-001
+    applies_to: [".cs"]
+    severity: Info
+    description: "Prefer FirstOrDefault over First, Single, SingleOrDefault"
+    guidance: |
+      - For arrays: use array[0] with length check
+      - For other collections: use FirstOrDefault()
+      - Avoid First() (throws on empty), Single/SingleOrDefault (throws on multiple) unless asserting cardinality
+    scope: file
+
+  # ============================================================
+  # NULL HANDLING
+  # ============================================================
+  - id: nnf-null-001
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Enable nullable reference types"
+    guidance: "Enable compile-time nullable reference type checks (<Nullable>enable</Nullable> in csproj)."
+    scope: file
+
+  - id: nnf-null-002
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Validate public/internal method parameters"
+    guidance: "Validate all parameters of public/internal methods even with nullable enabled. Use ArgumentNullException.ThrowIfNull() or explicit null checks."
+    scope: file
+
+  - id: nnf-null-003
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Avoid null-forgiving operator (!)"
+    guidance: "Avoid using the ! null-forgiving operator. Do actual null checks instead of telling the compiler to ignore potential nulls."
+    pattern:
+      type: regex
+      value: "\\w+!\\."
+    scope: file
+
+  - id: nnf-null-004
+    applies_to: [".cs"]
+    severity: Info
+    description: "Use null for non-existence, not empty collections"
+    guidance: "Use null (not empty string/collection) to denote non-existence for optional parameters. Null clearly signifies 'no value'."
+    scope: file
+
+  # ============================================================
+  # EQUALITY
+  # ============================================================
+  - id: nnf-eq-001
+    applies_to: [".cs"]
+    severity: Error
+    description: "Override GetHashCode when overriding Equals"
+    guidance: "If you override Equals, you must also override GetHashCode. Use HashCode.Combine() for good distribution."
+    scope: file
+
+  - id: nnf-eq-002
+    applies_to: [".cs"]
+    severity: Info
+    description: "Implement IEquatable<T> for type-safe equality"
+    guidance: "When overriding equality, implement IEquatable<T> for type-safe, boxing-free comparisons. Have object.Equals delegate to the typed version."
+    scope: file
+
+  # ============================================================
+  # CONDITIONALS
+  # ============================================================
+  - id: nnf-cond-001
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Use guard clauses / early returns"
+    guidance: "Test conditions and return early. Check preconditions at method start and return/throw immediately (guard clauses). This reduces nesting."
+    scope: file
+
+  - id: nnf-cond-002
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Avoid deeply nested conditionals"
+    guidance: "Avoid deeply nested if statements (arrowhead anti-pattern). Invert conditions and use early exits to flatten code."
+    scope: file
+
+  # ============================================================
+  # FORMATTING
+  # ============================================================
+  - id: nnf-fmt-001
+    applies_to: [".cs"]
+    severity: Info
+    description: "Break long fluent chains across lines"
+    guidance: "Place each method invocation on new line if chain is ~50+ characters. Indent by one level. Start each line with the dot."
+    scope: file
+
+  - id: nnf-fmt-002
+    applies_to: [".cs"]
+    severity: Info
+    description: "Break long parameter lists across lines"
+    guidance: "Place each argument/parameter on new line if line exceeds ~200 characters. Indent by one level."
+    scope: file
+
+  - id: nnf-fmt-003
+    applies_to: [".cs"]
+    severity: Info
+    description: "Use expression-bodied members for simple expressions"
+    guidance: "Use => for methods with single, simple expressions. Use block body {} for complex logic, multiple statements, or nested lambdas."
+    scope: file
+
+  - id: nnf-fmt-004
+    applies_to: [".cs"]
+    severity: Info
+    description: "Break at operators, operator at line start"
+    guidance: "For long boolean/arithmetic expressions, break at operators and start new lines with the operator (&&, ||, +, etc.)."
+    scope: file
+
+  # ============================================================
+  # LANGUAGE FEATURES
+  # ============================================================
+  - id: nnf-lang-001
+    applies_to: [".cs"]
+    severity: Info
+    description: "Prefer char over single-character string"
+    guidance: "Use char ('_') instead of string (\"_\") for single-character operations. Char is more efficient."
+    scope: file
+
+  - id: nnf-lang-002
+    applies_to: [".cs"]
+    severity: Info
+    description: "Use const for compile-time constants"
+    guidance: "Use const for true compile-time constants. Use static readonly for runtime constants or complex types (Guid, DateTime, etc.)."
+    scope: file
+
+  - id: nnf-lang-003
+    applies_to: [".cs"]
+    severity: Info
+    description: "Prefer pattern matching for type checks"
+    guidance: "Use 'is' pattern matching (if (obj is Type t)) over 'as' + null check. It's safer and more concise."
+    scope: file
+
+  - id: nnf-lang-004
+    applies_to: [".cs"]
+    severity: Info
+    description: "Prefer TryParse over Parse"
+    guidance: "Use TryParse instead of Parse to avoid exceptions on invalid input. Handle the false return appropriately."
+    scope: file
+
+  - id: nnf-lang-005
+    applies_to: [".cs"]
+    severity: Info
+    description: "Use Action/Func instead of custom delegates"
+    guidance: "Use predefined Action<> and Func<> instead of custom delegate types. They cover most use cases."
+    scope: file
+
+  - id: nnf-lang-006
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Avoid conditional compilation (#if DEBUG)"
+    guidance: "Avoid #if DEBUG, #if RELEASE etc. Use configuration files, feature flags, or DI for environment-specific behavior instead."
+    pattern:
+      type: regex
+      value: "#if\\s+(DEBUG|RELEASE|TEST)"
+    scope: file
+
+  # ============================================================
+  # PROJECT ORGANIZATION
+  # ============================================================
+  - id: nnf-proj-001
+    applies_to: [".cs"]
+    severity: Info
+    description: "Use plural names for collection namespaces"
+    guidance: "Use plural names for namespaces containing collections of types (e.g., Models, Contracts, Schemas, Services)."
+    scope: file
+
+  - id: nnf-proj-002
+    applies_to: [".cs"]
+    severity: Info
+    description: "One type per file"
+    guidance: "Put each type in its own file unless there are tightly integrated data contracts. Makes types easier to find and reduces merge conflicts."
+    scope: file
+
+  - id: nnf-proj-003
+    applies_to: [".cs"]
+    severity: Info
+    description: "Avoid 'Service' in namespace/assembly names"
+    guidance: "Don't add 'Service' to namespace or assembly names. Prefer Microsoft.Flywheel.Sample over Microsoft.Flywheel.SampleService."
+    scope: file
+
+  # ============================================================
+  # DEPENDENCY INJECTION
+  # ============================================================
+  - id: nnf-di-001
+    applies_to: [".cs"]
+    severity: Info
+    description: "Define DependencyInjection class per component"
+    guidance: "Define a root-level class called DependencyInjection in each component with AddXxx extension methods for IServiceCollection."
+    scope: file
+
+  - id: nnf-di-002
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Use TryAddXxx over AddXxx for DI registration"
+    guidance: "Prefer TryAddSingleton/Scoped/Transient over Add methods to prevent duplicate registrations."
+    pattern:
+      type: regex
+      value: "services\\.Add(Singleton|Scoped|Transient)<"
+    scope: file
+
+  - id: nnf-di-003
+    applies_to: [".cs"]
+    severity: Info
+    description: "Use DI instead of factory pattern"
+    guidance: "Always use Dependency Injection instead of the factory pattern if possible. DI containers are sophisticated factories."
+    scope: file
+
+  # ============================================================
+  # CONFIGURATION
+  # ============================================================
+  - id: nnf-cfg-001
+    applies_to: [".cs"]
+    severity: Info
+    description: "Components should define own configuration"
+    guidance: "Each component should define and read its own configuration section using strongly-typed IOptions<T>."
+    scope: file
+
+  - id: nnf-cfg-002
+    applies_to: [".cs", ".json", ".yaml"]
+    severity: Info
+    description: "Timeouts should include Milliseconds suffix"
+    guidance: "Define timeouts in milliseconds with 'Milliseconds' suffix in config names (e.g., RetryDelayMilliseconds, HttpRequestTimeoutMilliseconds)."
+    scope: file
+
+  - id: nnf-cfg-003
+    applies_to: [".cs"]
+    severity: Warning
+    description: "No hardcoded configurable values"
+    guidance: "Don't hardcode values that might change between environments. Use configuration files, environment variables, or Azure App Configuration."
+    scope: file
+
+  - id: nnf-cfg-004
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Use framework configuration, not custom readers"
+    guidance: "Use Microsoft.Extensions.Configuration, not custom config file readers. It supports multiple providers and strongly-typed options."
+    scope: file
+
+  # ============================================================
+  # POLLY / RESILIENCE
+  # ============================================================
+  - id: nnf-polly-001
+    applies_to: [".cs"]
+    severity: Info
+    description: "Use Polly for retry and circuit breaker"
+    guidance: "Use Polly library for all retry and circuit breaking policies instead of custom implementations. Define policies as static readonly."
+    scope: file
+
+  # ============================================================
+  # MICROSERVICES
+  # ============================================================
+  - id: nnf-micro-001
+    applies_to: [".csproj"]
+    severity: Error
+    description: "No cross-references between microservices"
+    guidance: "Avoid direct project references between microservices. Use APIs, gRPC, or message queues for communication."
+    scope: file
+
+  - id: nnf-micro-002
+    applies_to: [".cs", ".json", ".yaml"]
+    severity: Warning
+    description: "No shared configs via file links"
+    guidance: "Don't share config files between microservices. Each service should manage its own configuration independently."
+    scope: file
+
+  # ============================================================
+  # TESTING (xUnit)
+  # ============================================================
+  - id: nnf-test-001
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Tests must be isolated and independent"
+    guidance: "Tests must not share state (avoid static fields). Use constructor setup and IDisposable for cleanup. xUnit runs tests in parallel."
+    scope: file
+
+  - id: nnf-test-002
+    applies_to: [".cs"]
+    severity: Info
+    description: "Use [Fact] and [Theory] appropriately"
+    guidance: "Use [Fact] for single scenarios, [Theory] with [InlineData]/[MemberData] for parameterized/data-driven tests."
+    scope: file
+
+  - id: nnf-test-003
+    applies_to: [".cs"]
+    severity: Info
+    description: "Use precise assertions with messages"
+    guidance: "Use specific assertions (Assert.Equal, Assert.Throws, Assert.Contains) with custom messages for clarity. Consider FluentAssertions."
+    scope: file
+
+  - id: nnf-test-004
+    applies_to: [".cs"]
+    severity: Info
+    description: "Mock dependencies with Moq"
+    guidance: "Use Moq to mock interfaces for unit test isolation. Verify outcomes, not internal implementation details."
+    scope: file
+
+  - id: nnf-test-005
+    applies_to: [".cs"]
+    severity: Warning
+    description: "Test async code correctly"
+    guidance: "Use async Task in test methods. Use Assert.ThrowsAsync for async exceptions. Avoid async void."
+    scope: file
+
+  - id: nnf-test-006
+    applies_to: [".cs"]
+    severity: Info
+    description: "Clear test naming convention"
+    guidance: "Name tests as [MethodUnderTest]_[Scenario]_[ExpectedResult]. Example: Add_NegativeNumbers_ReturnsNegativeSum"
+    scope: file
+
+  - id: nnf-test-007
+    applies_to: [".cs"]
+    severity: Info
+    description: "Keep tests fast - avoid I/O"
+    guidance: "Avoid file/network I/O in unit tests. Use mocks and in-memory alternatives (MemoryStream, etc.)."
+    scope: file
+
+  - id: nnf-test-008
+    applies_to: [".cs"]
+    severity: Info
+    description: "Test exception paths"
+    guidance: "Test error handling paths using Assert.Throws/Assert.ThrowsAsync. Verify both expected and edge-case errors."
+    scope: file
+
+  - id: nnf-test-009
+    applies_to: [".cs"]
+    severity: Info
+    description: "Only InternalsVisibleTo for test assemblies"
+    guidance: "In AssemblyInfo, use InternalsVisibleTo only for test assemblies to enable white-box testing of internal members."
+    scope: file
+
+# ============================================================
+# PR-LEVEL CHECKS
+# ============================================================
+pr_checks:
+  - id: nnf-pr-001
+    severity: Warning
+    description: "PR title should follow convention"
+    guidance: "PR title should describe the change clearly. Consider format: [Type] Brief description (e.g., [Feature] Add user authentication)"
+    type: title_pattern
+    value: "^\\[.+\\]\\s+.+"
+
+  - id: nnf-pr-002
+    severity: Warning
+    description: "PR description required"
+    guidance: "Include a description explaining what changes were made and why."
+    type: description_required
+    value: true
+
+  - id: nnf-pr-003
+    severity: Info
+    description: "PR should be reasonably sized"
+    guidance: "Keep PRs small and focused. Large PRs are harder to review. Consider splitting into smaller changes."
+    type: max_lines
+    value: 500

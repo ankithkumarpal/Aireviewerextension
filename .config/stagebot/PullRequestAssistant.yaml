@@ -1,0 +1,149 @@
+version: 1
+inherit_central_standards: true
+
+include_paths:
+  - "**/*.cs"
+exclude_paths:
+  - "**/bin/**"
+  - "**/obj/**"
+  - "**/Migrations/**"
+
+# ============================================
+# PR-level checks (metadata, size, conventions)
+# ============================================
+pr_checks:
+  - id: title_format
+    type: title_pattern
+    severity: Warning
+    description: "PR title should follow conventional format"
+    guidance: "Use format: type(scope): description. E.g., 'feat(api): add user endpoint'"
+    value: "^(feat|fix|docs|style|refactor|test|chore)(\\(.+\\))?:\\s.+"
+
+  - id: description_required
+    type: description_required
+    severity: Warning
+    description: "PR must have a description"
+    guidance: "Add a description explaining what changes were made and why."
+
+  - id: description_length
+    type: description_min_length
+    severity: Info
+    description: "PR description should be meaningful"
+    guidance: "Provide enough context for reviewers to understand the changes."
+    value: 30
+
+  - id: max_files_changed
+    type: max_files
+    severity: Warning
+    description: "PRs should be focused and not change too many files"
+    guidance: "Consider splitting large PRs into smaller, focused changes."
+    value: 20
+
+  - id: max_lines_changed
+    type: max_lines
+    severity: Warning
+    description: "PRs should not be too large"
+    guidance: "Large PRs are harder to review. Consider splitting into smaller changes."
+    value: 500
+
+  - id: branch_naming
+    type: branch_pattern
+    severity: Info
+    description: "Branch name should follow naming convention"
+    guidance: "Use format: type/description or type/ticket-description"
+    value: "^(feature|fix|hotfix|release|chore)/[a-z0-9-]+"
+
+  - id: wip_label
+    type: forbidden_labels
+    severity: Error
+    description: "PRs with WIP label should not be merged"
+    guidance: "Remove the WIP label when the PR is ready for review."
+    value: ["WIP", "work-in-progress", "do-not-merge"]
+
+# ============================================
+# Code-level checks (patterns in changed files)
+# ============================================
+checks:
+  - id: hardcoded_secrets
+    applies_to: [".cs"]
+    severity: Error
+    scope: file
+    description: "Detect likely hardcoded secrets such as API keys, passwords or connection strings."
+    guidance: "Move secrets to configuration or Azure Key Vault. Do not commit secret values to source control."
+    pattern:
+      type: regex
+      value: '(["\'])(?i)(api[_-]?key|secret|password|connectionstring)(["\'])\s*[:=]\s*(["\'])[^^"\']{8,}(["\'])'
+
+  - id: blocking_calls_in_async
+    applies_to: [".cs"]
+    severity: Warning
+    scope: file
+    description: "Detect blocking calls or synchronous waits in async code (e.g., .Result, .Wait(), Thread.Sleep)."
+    guidance: "Avoid blocking on async tasks. Use await and CancellationToken where appropriate."
+    pattern:
+      type: list
+      value:
+        - ".Result"
+        - ".Wait("
+        - "Thread.Sleep("
+
+  - id: console_or_debug_logging
+    applies_to: [".cs"]
+    severity: Info
+    scope: file
+    description: "Detect direct Console.WriteLine or Debug.Print used in production code." 
+    guidance: "Use the application's logging framework (ILogger) with structured logs and appropriate levels."
+    pattern:
+      type: regex
+      value: "Console\\.WriteLine\\(|Debug\\.Print\\(|Trace\\.WriteLine\\("
+
+  - id: missing_dispose_heuristic
+    applies_to: [".cs"]
+    severity: Warning
+    scope: file
+    description: "Heuristic: creation of disposable resources without obvious using/Dispose (FileStream, SqlConnection)."
+    guidance: "Wrap IDisposable in using or ensure Dispose is called. Prefer async disposables where appropriate."
+    pattern:
+      type: regex
+      value: "new\\s+(FileStream|SqlConnection|StreamWriter)\\(|new\\s+\\w+\\s*\\(.*\\)"
+
+  - id: naming_short_public
+    applies_to: [".cs"]
+    severity: Info
+    scope: file
+    description: "Heuristic: public members with single-letter names or unclear abbreviations."
+    guidance: "Use descriptive PascalCase names for public APIs."
+    pattern:
+      type: regex
+      value: "public\\s+(?:static\\s+)?(?:int|string|bool|\\w+)\\s+[a-z]\\b"
+
+  - id: prefer_configuration_over_constants
+    applies_to: [".cs"]
+    severity: Warning
+    scope: file
+    description: "Detect likely hardcoded environment/endpoint values (http(s) urls, localhost)."
+    guidance: "Use configuration files, environment variables or Key Vault instead of hardcoded URLs and environment-specific values."
+    pattern:
+      type: regex
+      value: 'https?://|localhost|127\\.0\\.0\\.1'
+
+  - id: todo_fixme_comments
+    applies_to: [".cs", ".ts", ".js"]
+    severity: Info
+    scope: both
+    description: "Track TODO and FIXME comments in code"
+    guidance: "Ensure TODOs have associated tickets or are addressed before merging."
+    pattern:
+      type: regex
+      value: "//\\s*(TODO|FIXME|HACK|XXX):"
+
+  - id: large_method_heuristic
+    applies_to: [".cs"]
+    severity: Warning
+    scope: file
+    description: "Methods should not be excessively long"
+    guidance: "Consider breaking down methods longer than 50 lines into smaller, focused methods."
+    pattern:
+      type: metrics
+      value:
+        max_lines_per_method: 50

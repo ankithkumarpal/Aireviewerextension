@@ -7,14 +7,12 @@ using System.Windows;
 using System.Windows.Controls;
 using Microsoft.VisualStudio.Shell;
 using EnvDTE;
-using AiReviewer.Shared.Enum;
 using AiReviewer.Shared.Models;
 using AiReviewer.Shared.Services;
 using AiReviewer.Shared.StaticHelper;
-using AiReviewer.VSIX.Configuration;
 using AiReviewer.VSIX.Services;
 
-namespace AiReviewer.VSIX.ToolWindows
+namespace AiReviewer.VSIX
 {
     public partial class AiReviewerToolWindowControl : UserControl
     {
@@ -352,9 +350,14 @@ namespace AiReviewer.VSIX.ToolWindows
 
             UpdateProgress("🔐", "Authenticating...", "Signing in to Azure AD...");
 
-            // Use Azure AD authentication
-            var apiClient = new TeamLearningApiClient(AppConfig.ApiUrl, 
-                () => AzureAdAuthService.Instance.GetAccessTokenAsync());
+            // Create API client with Azure AD authentication
+            var apiClient = new TeamLearningApiClient(
+                AppConfig.ApiUrl, 
+                async () => await AzureAdAuthService.Instance.GetAccessTokenAsync()
+            );
+            
+            UpdateProgress("🔐", "Getting AI credentials...", "Connecting to API...");
+            
             var aiConfig = await apiClient.GetAiConfigAsync();
 
             if (!aiConfig.IsValid)
@@ -656,19 +659,27 @@ namespace AiReviewer.VSIX.ToolWindows
             // Use Azure AD authentication
             if (AppConfig.EnableTeamLearning)
             {
-                return new TeamLearningApiClient(AppConfig.ApiUrl, 
-                    () => AzureAdAuthService.Instance.GetAccessTokenAsync());
+                return new TeamLearningApiClient(
+                    AppConfig.ApiUrl, 
+                    async () => await AzureAdAuthService.Instance.GetAccessTokenAsync()
+                );
             }
             return null;
         }
 
         /// <summary>
-        /// Gets the contributor name - uses Azure AD email or falls back to Windows username
+        /// Gets the contributor name from settings
         /// </summary>
         private string GetContributorName()
         {
-            // Try to get email from Azure AD (if user is signed in)
-            // For now, use Windows username - will be updated to use AAD claim
+            // TESTING MODE: Return a test contributor name
+            const bool TESTING_MODE = true;
+            if (TESTING_MODE)
+            {
+                return "Ankith"; // Your name for testing
+            }
+            
+            // Use hardcoded AppConfig
             return AppConfig.ContributorName;
         }
 
