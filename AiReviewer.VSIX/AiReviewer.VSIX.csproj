@@ -67,6 +67,7 @@
     <Compile Include="Services\AiReviewErrorListProvider.cs" />
     <Compile Include="Services\AiReviewOutputPane.cs" />
     <Compile Include="Services\CodeFixApplier.cs" />
+    <Compile Include="Services\AzureAdAuthService.cs" />
     <Compile Include="ToolWindows\AiReviewerToolWindow.cs" />
     <Compile Include="Configuration\AppConfig.cs" />
     <Compile Include="ToolWindows\AiReviewerToolWindowControl.xaml.cs">
@@ -83,6 +84,12 @@
   <ItemGroup>
     <PackageReference Include="Azure.Core">
       <Version>1.44.1</Version>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Identity.Client">
+      <Version>4.61.3</Version>
+    </PackageReference>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData">
+      <Version>8.0.0</Version>
     </PackageReference>
     <PackageReference Include="System.ClientModel">
       <Version>1.2.1</Version>
@@ -127,7 +134,7 @@
     <None Include="source.extension.vsixmanifest">
       <SubType>Designer</SubType>
     </None>
-    <Content Include="LICENSE.txt">
+    <Content Include="..\LICENSE.txt" Link="LICENSE.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>

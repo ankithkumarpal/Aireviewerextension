@@ -11,21 +11,17 @@ namespace AiReviewer.Shared.Services
     /// <summary>
     /// HTTP client for communicating with the Team Learning API (Azure Function).
     /// 
-    /// This client supports two authentication modes:
-    /// 1. Azure AD Bearer token (preferred, secure)
-    /// 2. API Key (legacy/fallback)
-    /// 
-    /// Use SetBearerToken() to switch to Azure AD authentication.
+    /// Supports two authentication modes:
+    /// 1. Azure AD Bearer token (recommended, secure)
+    /// 2. API Key (legacy, for backward compatibility)
     /// </summary>
     public class TeamLearningApiClient : IDisposable
     {
         private readonly HttpClient _httpClient;
         private readonly string _baseUrl;
         private readonly JsonSerializerOptions _jsonOptions;
+        private readonly Func<Task<string>> _tokenProvider;
         private bool _disposed;
-
-        // Token provider for Azure AD authentication
-        private Func<Task<string>> _tokenProvider;
 
         /// <summary>
         /// Creates a new Team Learning API client with Azure AD authentication.
@@ -50,38 +46,9 @@ namespace AiReviewer.Shared.Services
         }
 
         /// <summary>
-        /// Creates a new Team Learning API client with API Key authentication (legacy).
-        /// Consider using the constructor with tokenProvider for better security.
-        /// </summary>
-        /// <param name="baseUrl">Base URL of the API</param>
-        /// <param name="apiKey">API key for authentication</param>
-        [Obsolete("Use constructor with tokenProvider for Azure AD authentication")]
-        public TeamLearningApiClient(string baseUrl, string apiKey)
-        {
-            _baseUrl = baseUrl?.TrimEnd('/') ?? throw new ArgumentNullException(nameof(baseUrl));
-
-            _httpClient = new HttpClient
-            {
-                Timeout = TimeSpan.FromSeconds(30)
-            };
-            
-            // Legacy: Use API key header
-            if (!string.IsNullOrEmpty(apiKey))
-            {
-                _httpClient.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
-            }
-
-            _jsonOptions = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true,
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            };
-        }
-
-        /// <summary>
         /// Ensures the Authorization header has a valid Bearer token before each request.
         /// </summary>
-        private async Task EnsureAuthHeaderAsync()
+        private async Task SetAuthHeaderAsync()
         {
             if (_tokenProvider != null)
             {
@@ -90,6 +57,11 @@ namespace AiReviewer.Shared.Services
                 {
                     _httpClient.DefaultRequestHeaders.Authorization = 
                         new AuthenticationHeaderValue("Bearer", token);
+                    System.Diagnostics.Debug.WriteLine("[Auth] Bearer token set on request");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("[Auth] WARNING: Token provider returned null");
                 }
             }
         }
@@ -103,6 +75,8 @@ namespace AiReviewer.Shared.Services
         {
             try
             {
+                await SetAuthHeaderAsync().ConfigureAwait(false);
+                
                 var url = $"{_baseUrl}/config";
                 System.Diagnostics.Debug.WriteLine($"[AI Reviewer] Fetching AI config from: {url}");
 
@@ -142,6 +116,8 @@ namespace AiReviewer.Shared.Services
         {
             try
             {
+                await SetAuthHeaderAsync().ConfigureAwait(false);
+                
                 var url = $"{_baseUrl}/feedback";
                 var json = JsonSerializer.Serialize(feedback, _jsonOptions);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -200,6 +176,8 @@ namespace AiReviewer.Shared.Services
         {
             try
             {
+                await SetAuthHeaderAsync().ConfigureAwait(false);
+                
                 var ext = Uri.EscapeDataString(fileExtension.ToLowerInvariant());
                 var url = $"{_baseUrl}/patterns?ext={ext}&minOccurrences={minOccurrences}&maxResults={maxResults}&minAccuracy={minAccuracy}";
 
@@ -232,6 +210,8 @@ namespace AiReviewer.Shared.Services
         {
             try
             {
+                await SetAuthHeaderAsync().ConfigureAwait(false);
+                
                 var url = $"{_baseUrl}/stats";
                 var response = await _httpClient.GetAsync(url).ConfigureAwait(false);
 

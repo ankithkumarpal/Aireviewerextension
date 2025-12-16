@@ -28,22 +28,6 @@ public class ConfigFunctions
         _logger = logger;
     }
 
-    private bool ValidateApiKey(HttpRequestData request)
-    {
-        var expectedKey = _configuration["ApiKey"];
-        if (string.IsNullOrEmpty(expectedKey))
-        {
-            return true; // Allow if not configured (dev mode)
-        }
-
-        if (request.Headers.TryGetValues("X-Api-Key", out var values))
-        {
-            return values.FirstOrDefault() == expectedKey;
-        }
-
-        return false;
-    }
-
     /// <summary>
     /// GET /api/config - Returns Azure OpenAI configuration
     /// 
@@ -53,6 +37,9 @@ public class ConfigFunctions
     ///   "azureOpenAIKey": "your-key",
     ///   "deploymentName": "gpt-4o-mini"
     /// }
+    /// 
+    /// Security: Azure AD Easy Auth handles authentication and authorization.
+    /// Only users in the tenant (including B2B guests) who are assigned to the app can access.
     /// </summary>
     [Function("GetAiConfig")]
     public async Task<HttpResponseData> GetAiConfig(
@@ -60,13 +47,8 @@ public class ConfigFunctions
     {
         _logger.LogInformation("AI config requested");
 
-        if (!ValidateApiKey(request))
-        {
-            _logger.LogWarning("Unauthorized config request");
-            var unauthorized = request.CreateResponse(HttpStatusCode.Unauthorized);
-            await unauthorized.WriteAsJsonAsync(new { error = "Invalid or missing API key" });
-            return unauthorized;
-        }
+        // Authentication & authorization handled by Azure AD Easy Auth
+        // If we got here, the user is authenticated and authorized
 
         var endpoint = _configuration["AzureOpenAIEndpoint"];
         var apiKey = _configuration["AzureOpenAIKey"];

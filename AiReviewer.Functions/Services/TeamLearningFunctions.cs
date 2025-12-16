@@ -35,36 +35,6 @@ public class TeamLearningFunctions
         _logger = logger;
     }
 
-    /// <summary>
-    /// Validates the API key from the request header
-    /// </summary>
-    private bool ValidateApiKey(HttpRequestData request)
-    {
-        var expectedKey = _configuration["ApiKey"];
-        if (string.IsNullOrEmpty(expectedKey))
-        {
-            _logger.LogWarning("ApiKey not configured in application settings");
-            return true; // Allow if not configured (dev mode)
-        }
-
-        if (request.Headers.TryGetValues("X-Api-Key", out var values))
-        {
-            return values.FirstOrDefault() == expectedKey;
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Creates an unauthorized response
-    /// </summary>
-    private async Task<HttpResponseData> CreateUnauthorizedResponse(HttpRequestData request)
-    {
-        var response = request.CreateResponse(HttpStatusCode.Unauthorized);
-        await response.WriteAsJsonAsync(new { error = "Invalid or missing API key" });
-        return response;
-    }
-
     // POST /api/feedback - Submit new feedback
 
     /// <summary>
@@ -92,11 +62,7 @@ public class TeamLearningFunctions
     {
         _logger.LogInformation("Received feedback submission request");
 
-        // Validate API key
-        if (!ValidateApiKey(request))
-        {
-            return await CreateUnauthorizedResponse(request);
-        }
+        // Authentication & authorization handled by Azure AD Easy Auth
 
         try
         {
@@ -184,11 +150,7 @@ public class TeamLearningFunctions
     public async Task<HttpResponseData> GetPatterns(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "patterns")] HttpRequestData request)
     {
-        // Validate API key
-        if (!ValidateApiKey(request))
-        {
-            return await CreateUnauthorizedResponse(request);
-        }
+        // Authentication & authorization handled by Azure AD Easy Auth
 
         try
         {
@@ -291,11 +253,7 @@ public class TeamLearningFunctions
     public async Task<HttpResponseData> GetStats(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "stats")] HttpRequestData request)
     {
-        // Validate API key
-        if (!ValidateApiKey(request))
-        {
-            return await CreateUnauthorizedResponse(request);
-        }
+        // Authentication & authorization handled by Azure AD Easy Auth
 
         try
         {

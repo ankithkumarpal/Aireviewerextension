@@ -350,9 +350,11 @@ namespace AiReviewer.VSIX.ToolWindows
                 return (config, path);
             });
 
-            UpdateProgress("🔐", "Getting AI credentials...", "Connecting to API...");
+            UpdateProgress("🔐", "Authenticating...", "Signing in to Azure AD...");
 
-            var apiClient = new TeamLearningApiClient(AppConfig.ApiUrl, AppConfig.ApiKey);
+            // Use Azure AD authentication
+            var apiClient = new TeamLearningApiClient(AppConfig.ApiUrl, 
+                () => AzureAdAuthService.Instance.GetAccessTokenAsync());
             var aiConfig = await apiClient.GetAiConfigAsync();
 
             if (!aiConfig.IsValid)
@@ -651,41 +653,22 @@ namespace AiReviewer.VSIX.ToolWindows
         /// </summary>
         private TeamLearningApiClient? GetTeamApiClient()
         {
-            // ═══════════════════════════════════════════════════════════════════
-            // TESTING MODE: Hardcoded values for testing
-            // TODO: Remove this block after testing and use Options page instead
-            // ═══════════════════════════════════════════════════════════════════
-            const bool TESTING_MODE = true; // Set to false to use Options page
-            
-            if (TESTING_MODE)
-            {
-                const string TEST_API_URL = "https://ai-reviewer-teamlearning-apc4dvfhgxaze3h9.eastus-01.azurewebsites.net/api";
-                const string TEST_API_KEY = "TeamLearning2024SecretKey!";
-                return new TeamLearningApiClient(TEST_API_URL, TEST_API_KEY);
-            }
-            // ═══════════════════════════════════════════════════════════════════
-            
-            // Use hardcoded AppConfig (no VS Options needed)
+            // Use Azure AD authentication
             if (AppConfig.EnableTeamLearning)
             {
-                return new TeamLearningApiClient(AppConfig.ApiUrl, AppConfig.ApiKey);
+                return new TeamLearningApiClient(AppConfig.ApiUrl, 
+                    () => AzureAdAuthService.Instance.GetAccessTokenAsync());
             }
             return null;
         }
 
         /// <summary>
-        /// Gets the contributor name from settings
+        /// Gets the contributor name - uses Azure AD email or falls back to Windows username
         /// </summary>
         private string GetContributorName()
         {
-            // TESTING MODE: Return a test contributor name
-            const bool TESTING_MODE = true;
-            if (TESTING_MODE)
-            {
-                return "Ankith"; // Your name for testing
-            }
-            
-            // Use hardcoded AppConfig
+            // Try to get email from Azure AD (if user is signed in)
+            // For now, use Windows username - will be updated to use AAD claim
             return AppConfig.ContributorName;
         }
 
