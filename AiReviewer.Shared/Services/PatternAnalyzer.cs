@@ -142,7 +142,8 @@ namespace AiReviewer.Shared.Services
             }
 
             var sb = new StringBuilder();
-            sb.AppendLine("\n## LEARNED FROM PAST REVIEWS (use this to improve your suggestions):");
+            sb.AppendLine("\n## LEARNED FROM TEAM FEEDBACK (CHECKID prefix: team-)");
+            sb.AppendLine("When you report an issue based on these learned patterns, use CHECKID: team-{rule} (e.g., team-LOGIC, team-STYLE)");
             sb.AppendLine();
 
             var positiveExamples = examples.Where(e => e.IsPositiveExample).ToList();
@@ -150,10 +151,10 @@ namespace AiReviewer.Shared.Services
 
             if (positiveExamples.Count > 0)
             {
-                sb.AppendLine("### ✅ SUGGESTIONS THAT WORK WELL:");
+                sb.AppendLine("### ✅ PATTERNS THAT WORK WELL (use CHECKID: team-{rule} when applying):");
                 foreach (var ex in positiveExamples.Take(10))
                 {
-                    sb.AppendLine($"- [{ex.Rule}] {ex.Learning}");
+                    sb.AppendLine($"- [team-{ex.Rule}] {ex.Learning}");
                     if (!string.IsNullOrEmpty(ex.CorrectSuggestion))
                     {
                         sb.AppendLine($"  Example: \"{TruncateString(ex.CorrectSuggestion, 150)}\"");
@@ -164,10 +165,10 @@ namespace AiReviewer.Shared.Services
 
             if (negativeExamples.Count > 0)
             {
-                sb.AppendLine("### ⚠️ SUGGESTIONS TO AVOID OR IMPROVE:");
+                sb.AppendLine("### ⚠️ PATTERNS TO AVOID (learned from negative feedback):");
                 foreach (var ex in negativeExamples.Take(10))
                 {
-                    sb.AppendLine($"- [{ex.Rule}] {ex.Learning}");
+                    sb.AppendLine($"- [team-{ex.Rule}] {ex.Learning}");
                     if (!string.IsNullOrEmpty(ex.CorrectSuggestion))
                     {
                         sb.AppendLine($"  Better approach: \"{TruncateString(ex.CorrectSuggestion, 150)}\"");

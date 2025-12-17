@@ -665,10 +665,57 @@ namespace AiReviewer.VSIX.ToolWindows
         /// <summary>
         /// Gets the contributor name - uses Azure AD email or falls back to Windows username
         /// </summary>
+        private async Task<string> GetContributorNameAsync()
+        {
+            try
+            {
+                // Try to get email from Azure AD (if user is signed in)
+                var azureAdEmail = await AzureAdAuthService.Instance.GetCurrentUserAsync();
+                if (!string.IsNullOrEmpty(azureAdEmail))
+                {
+                    // Extract name from email (e.g., "john.doe@company.com" -> "john.doe")
+                    var atIndex = azureAdEmail.IndexOf('@');
+                    if (atIndex > 0)
+                    {
+                        return azureAdEmail.Substring(0, atIndex).Replace(".", " ");
+                    }
+                    return azureAdEmail;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Contributor] Error getting Azure AD user: {ex.Message}");
+            }
+            
+            // Fallback to Windows username
+            return AppConfig.ContributorName;
+        }
+        
+        /// <summary>
+        /// Synchronous version for compatibility - uses cached value or Windows username
+        /// </summary>
         private string GetContributorName()
         {
-            // Try to get email from Azure AD (if user is signed in)
-            // For now, use Windows username - will be updated to use AAD claim
+            // Try to get cached Azure AD user synchronously
+            try
+            {
+                var task = AzureAdAuthService.Instance.GetCurrentUserAsync();
+                if (task.Wait(100)) // Quick timeout - don't block UI
+                {
+                    var azureAdEmail = task.Result;
+                    if (!string.IsNullOrEmpty(azureAdEmail))
+                    {
+                        var atIndex = azureAdEmail.IndexOf('@');
+                        if (atIndex > 0)
+                        {
+                            return azureAdEmail.Substring(0, atIndex).Replace(".", " ");
+                        }
+                        return azureAdEmail;
+                    }
+                }
+            }
+            catch { /* Ignore - use fallback */ }
+            
             return AppConfig.ContributorName;
         }
 
@@ -1006,6 +1053,48 @@ namespace AiReviewer.VSIX.ToolWindows
         public string FixedCode => Result.FixedCode;
         public string Rule => string.IsNullOrEmpty(Result.Rule) ? "Code Quality" : Result.Rule;
         public string Confidence => string.IsNullOrEmpty(Result.Confidence) ? "Medium" : Result.Confidence;
+        
+        /// <summary>
+        /// The specific check ID if matched (e.g., "nnf-async-002")
+        /// </summary>
+        public string CheckId => Result.CheckId ?? "";
+        
+        /// <summary>
+        /// Source of the rule: "NNF", "Repo", or "AI"
+        /// </summary>
+        public string RuleSource => Result.RuleSource ?? "AI";
+        
+        /// <summary>
+        /// Display text showing the rule source with badge
+        /// </summary>
+        public string RuleSourceDisplay => RuleSource switch
+        {
+            "NNF" => "📘 NNF Standard",
+            "Repo" => "📁 Repo Rule",
+            "Team" => "📚 Team Learning",
+            _ => "🤖 AI Detection"
+        };
+        
+        /// <summary>
+        /// Background color for the rule source badge
+        /// </summary>
+        public System.Windows.Media.Brush RuleSourceColor => RuleSource switch
+        {
+            "NNF" => new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x0E, 0x63, 0x9C)),  // Blue for NNF
+            "Repo" => new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x6A, 0x9E, 0x2E)), // Green for Repo
+            "Team" => new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xD4, 0x8A, 0x06)), // Orange for Team Learning
+            _ => new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x68, 0x21, 0x7A))       // Purple for AI
+        };
+        
+        /// <summary>
+        /// Show check ID if available
+        /// </summary>
+        public string CheckIdDisplay => string.IsNullOrEmpty(CheckId) ? "" : $"[{CheckId}]";
+        
+        /// <summary>
+        /// Visibility for the rule source badge
+        /// </summary>
+        public Visibility RuleSourceVisibility => Visibility.Visible;
 
         public string SeverityIcon => Result.Severity == "High" ? "🔴" :
                                       Result.Severity == "Medium" ? "🟡" : "🟢";

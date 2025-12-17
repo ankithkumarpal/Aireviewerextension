@@ -520,6 +520,34 @@ namespace AiReviewer.Shared.Services
                             rule = rule.Substring(5);
                         current.Rule = rule.Trim('*', ' ');
                     }
+                    else if (trimmed.StartsWith("CHECKID:", StringComparison.OrdinalIgnoreCase) ||
+                             trimmed.StartsWith("**CHECKID:**", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var checkId = trimmed;
+                        if (checkId.StartsWith("**CHECKID:**"))
+                            checkId = checkId.Substring(12);
+                        else
+                            checkId = checkId.Substring(8);
+                        checkId = checkId.Trim('*', ' ').ToLowerInvariant();
+                        
+                        if (!string.IsNullOrEmpty(checkId) && checkId != "none")
+                        {
+                            current.CheckId = checkId;
+                            // Determine source based on check ID prefix
+                            if (checkId.StartsWith("nnf-"))
+                                current.RuleSource = "NNF";
+                            else if (checkId.StartsWith("team-"))
+                                current.RuleSource = "Team";
+                            else if (checkId.StartsWith("repo-"))
+                                current.RuleSource = "Repo";
+                            else
+                                current.RuleSource = "Repo"; // Default non-prefixed IDs to Repo
+                        }
+                        else
+                        {
+                            current.RuleSource = "AI";
+                        }
+                    }
                     else if (trimmed == "---")
                     {
                         if (current != null && !string.IsNullOrEmpty(current.Issue))

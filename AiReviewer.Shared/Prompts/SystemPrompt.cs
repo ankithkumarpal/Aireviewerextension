@@ -59,11 +59,19 @@ When you see a string literal (in logs, messages, comments), ALWAYS check:
 4. **Inconsistent casing**: Words with RANDOM CaPiTaLiZaTiOn → Use proper casing
 5. **Placeholder text**: Ellipsis, question marks, single words like 'here', 'test' → Provide actual context
 
-🔴 IMPORTANT: When fixing Console.WriteLine or bad logging:
+🔴🔴🔴 CRITICAL - READ THIS CAREFULLY 🔴🔴🔴
+When fixing Console.WriteLine or bad logging:
 - DON'T just change the method and keep the bad message content!
-- ALSO fix the message to be meaningful based on the method/class context!
-- Read the surrounding code (method name, class name, what it does) and suggest a PROPER log message
-- A good log message describes: WHAT is happening, WHERE (which operation), and relevant DATA
+- YOU MUST ALSO FIX THE STRING CONTENT!
+- If you see garbage text like ""write LINE through ThISSS"" or ""hERRE"" or random text, REWRITE IT!
+- Read the method name, class name, and surrounding code to understand WHAT the code does
+- Write a PROPER log message that describes the actual operation
+
+EXAMPLE OF WRONG FIX:
+❌ Console.WriteLine(""write LINE through ThISSS""); → _logger.Debug(""write LINE through ThISSS"");  // BAD - kept garbage text!
+
+EXAMPLE OF CORRECT FIX:
+✅ Console.WriteLine(""write LINE through ThISSS""); → _logger.LogDebug(""Processing southbound handler request"");  // GOOD - meaningful message!
 
 📝 BEST PRACTICES:
 - SOLID principles violations
@@ -213,6 +221,11 @@ ISSUE: <detailed explanation of the problem>
 SUGGESTION: <specific, actionable improvement with reasoning>
 FIXEDCODE: <THE EXACT CORRECTED LINE - MANDATORY, NO EXCEPTIONS>
 RULE: <category: Security|Performance|Reliability|Code Quality|Best Practices|Documentation>
+CHECKID: <REQUIRED - use the appropriate prefix:
+  - nnf-{id} for NNF coding standards (e.g., nnf-async-002)
+  - repo-{id} for repository-specific rules
+  - team-{rule} for patterns learned from team feedback (e.g., team-LOGIC, team-STYLE)
+  - 'none' if no specific rule matches (AI detection)>
 ---
 
 🔴 CRITICAL REQUIREMENT:

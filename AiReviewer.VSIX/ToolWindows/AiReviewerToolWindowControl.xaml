@@ -334,11 +334,15 @@
                                         <Run Text=" Rule: "/>
                                         <Run Text="{Binding Rule, Mode=OneWay}"/>
                                     </TextBlock>
-                                    <TextBlock FontSize="11" Foreground="#888888">
+                                    <TextBlock FontSize="11" Foreground="#888888" Margin="0,0,10,0">
                                         <Run Text="{Binding ConfidenceIcon, Mode=OneWay}"/>
                                         <Run Text=" Confidence: "/>
                                         <Run Text="{Binding Confidence, Mode=OneWay}"/>
                                     </TextBlock>
+                                    <Border CornerRadius="3" Padding="5,2" VerticalAlignment="Center"
+                                            Background="{Binding RuleSourceColor, Mode=OneWay}">
+                                        <TextBlock Text="{Binding RuleSourceDisplay, Mode=OneWay}" FontSize="10" Foreground="White" FontWeight="SemiBold"/>
+                                    </Border>
                                 </StackPanel>
 
                                 <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
