@@ -298,23 +298,3 @@ AiReviewerExtension/
 
 ---
 
-## 📊 Data Flow Summary
-
-| Step | From | To | Data |
-|------|------|-----|------|
-| 1 | User | Git | `git add` staged files |
-| 2 | VSIX | Git | `git diff --staged` |
-| 3 | VSIX | Azure Func | `GET /api/config` |
-| 4 | Azure Func | VSIX | OpenAI credentials |
-| 5 | VSIX | Azure Func | `GET /api/patterns?ext=.cs` |
-| 6 | Azure Func | Table Storage | Query feedback |
-| 7 | Azure Func | VSIX | Learned patterns |
-| 8 | VSIX | Azure OpenAI | Code + Prompts + Patterns |
-| 9 | Azure OpenAI | VSIX | Review results (JSON) |
-| 10 | VSIX | User | Display in Tool Window |
-| 11 | User | VSIX | Click  |
-| 12 | VSIX | Azure Func | `POST /api/feedback` |
-| 13 | Azure Func | Table Storage | Store feedback |
-
----
-

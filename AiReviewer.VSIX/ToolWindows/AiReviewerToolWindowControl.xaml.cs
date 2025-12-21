@@ -342,13 +342,12 @@ namespace AiReviewer.VSIX.ToolWindows
 
             UpdateProgress("📝", $"Found {patches.Count} file(s)...", "Loading configuration...");
 
-            // Load config off UI thread
-            var (cfg, cfgPath) = await Task.Run(() =>
-            {
-                var path = System.IO.Path.Combine(repo, ".config", "stagebot", "PullRequestAssistant.yaml");
-                var config = System.IO.File.Exists(path) ? StagebotConfigLoader.Load(path) : new StagebotConfig();
-                return (config, path);
-            });
+            // Load config off UI thread - searches standard paths:
+            // 1. .config/stagebot/PullRequestAssistant.yaml
+            // 2. .config/stagebot/stagebot.yaml  
+            // 3. .stagebot.yaml
+            // 4. stagebot.yaml
+            var cfg = await Task.Run(() => StagebotConfigLoader.LoadFromRepository(repo) ?? new StagebotConfig());
 
             UpdateProgress("🔐", "Authenticating...", "Signing in to Azure AD...");
 
@@ -369,6 +368,12 @@ namespace AiReviewer.VSIX.ToolWindows
             var aiService = new AiReviewService(aiConfig.AzureOpenAIEndpoint, aiConfig.AzureOpenAIKey, aiConfig.DeploymentName);
             if (AppConfig.EnableTeamLearning)
                 aiService.SetTeamApiClient(apiClient);
+            
+            // Set up Standards service to fetch NNF standards from Azure
+            var standardsService = new AiReviewer.Shared.Services.StandardsService(
+                AppConfig.ApiUrl,
+                async () => await AzureAdAuthService.Instance.GetAccessTokenAsync());
+            aiService.SetStandardsService(standardsService);
 
             // Use streaming review with progress callback
             var results = await aiService.ReviewCodeWithStreamingAsync(patches, cfg, repo, progress =>

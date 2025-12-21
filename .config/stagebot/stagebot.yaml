@@ -64,6 +64,36 @@ pr_checks:
 # Code-level checks (patterns in changed files)
 # ============================================
 checks:
+  - id: repo-logging-sensitive-data
+    applies_to: [".cs"]
+    severity: Error
+    scope: file
+    description: "CRITICAL: Detect logging of sensitive authentication data (passwords, tokens, secrets, API keys, credentials)"
+    guidance: "NEVER log sensitive data! Remove or mask passwords, tokens, API keys, auth headers, and credentials from log statements. Use [REDACTED] placeholders if needed."
+    pattern:
+      type: list
+      value:
+        - "Log.*password"
+        - "Log.*Password"
+        - "Log.*token"
+        - "Log.*Token"
+        - "Log.*secret"
+        - "Log.*Secret"
+        - "Log.*apikey"
+        - "Log.*ApiKey"
+        - "Log.*credential"
+        - "Log.*Credential"
+        - "Log.*Authorization"
+        - "Log.*Bearer"
+        - "Console.*password"
+        - "Console.*Password"
+        - "Console.*token"
+        - "Console.*Token"
+        - "Debug.*password"
+        - "Debug.*Password"
+        - "Trace.*password"
+        - "Trace.*Password"
+
   - id: hardcoded_secrets
     applies_to: [".cs"]
     severity: Error
@@ -71,8 +101,14 @@ checks:
     description: "Detect likely hardcoded secrets such as API keys, passwords or connection strings."
     guidance: "Move secrets to configuration or Azure Key Vault. Do not commit secret values to source control."
     pattern:
-      type: regex
-      value: '(["\'])(?i)(api[_-]?key|secret|password|connectionstring)(["\'])\s*[:=]\s*(["\'])[^^"\']{8,}(["\'])'
+      type: list
+      value:
+        - "password"
+        - "secret"
+        - "apikey"
+        - "connectionstring"
+        - "api_key"
+        - "api-key"
 
   - id: blocking_calls_in_async
     applies_to: [".cs"]

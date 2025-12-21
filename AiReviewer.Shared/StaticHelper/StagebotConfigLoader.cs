@@ -16,7 +16,6 @@ namespace AiReviewer.Shared.StaticHelper
         /// </summary>
         private static readonly string[] ConfigPaths = new[]
         {
-            ".config/stagebot/PullRequestAssistant.yaml",
             ".config/stagebot/stagebot.yaml",
             ".stagebot.yaml",
             "stagebot.yaml"

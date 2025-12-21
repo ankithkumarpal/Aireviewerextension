@@ -55,29 +55,82 @@ namespace AiReviewer.Shared.Prompts
             sb.AppendLine($"File types: {fileTypes}");
             sb.AppendLine();
 
-            // Add relevant checks
+            // Add relevant checks - grouped by source for clear CHECKID prefixing
             var relevantChecks = GetRelevantChecks(config, filePaths);
             if (relevantChecks.Any())
             {
+                // Separate checks by source based on ID prefix
+                var repoChecks = relevantChecks.Where(c => c.Id.StartsWith("repo-", StringComparison.OrdinalIgnoreCase)).ToList();
+                var nnfChecks = relevantChecks.Where(c => c.Id.StartsWith("nnf-", StringComparison.OrdinalIgnoreCase)).ToList();
+                var teamChecks = relevantChecks.Where(c => c.Id.StartsWith("team-", StringComparison.OrdinalIgnoreCase)).ToList();
+                var otherChecks = relevantChecks.Where(c => 
+                    !c.Id.StartsWith("repo-", StringComparison.OrdinalIgnoreCase) && 
+                    !c.Id.StartsWith("nnf-", StringComparison.OrdinalIgnoreCase) &&
+                    !c.Id.StartsWith("team-", StringComparison.OrdinalIgnoreCase)).ToList();
+
                 sb.AppendLine("## CODING STANDARDS TO ENFORCE");
                 sb.AppendLine();
-                foreach (var check in relevantChecks)
-                {
-                    string severityEmoji;
-                    if (check.Severity == Severity.Error)
-                        severityEmoji = "🔴";
-                    else if (check.Severity == Severity.Warning)
-                        severityEmoji = "🟡";
-                    else
-                        severityEmoji = "🔵";
-                    
-                    sb.AppendLine($"- {severityEmoji} **{check.Id}** [{check.Severity}]: {check.Description}");
-                    if (!string.IsNullOrEmpty(check.Guidance))
-                    {
-                        sb.AppendLine($"  → {check.Guidance}");
-                    }
-                }
+                sb.AppendLine("⚠️ IMPORTANT: Use the check ID exactly as shown in CHECKID field. The prefix determines the badge:");
+                sb.AppendLine("- `repo-*` IDs → CHECKID: repo-xxx (📁 Repo Rule badge)");
+                sb.AppendLine("- `nnf-*` IDs → CHECKID: nnf-xxx (📘 NNF Standard badge)");
+                sb.AppendLine("- `team-*` IDs → CHECKID: team-xxx (📚 Team Learning badge)");
                 sb.AppendLine();
+
+                // Repository-specific checks (highest priority)
+                if (repoChecks.Any())
+                {
+                    sb.AppendLine("### 📁 REPOSITORY RULES (Highest Priority - use repo- prefix in CHECKID)");
+                    foreach (var check in repoChecks)
+                    {
+                        string severityEmoji = check.Severity == Severity.Error ? "🔴" : check.Severity == Severity.Warning ? "🟡" : "🔵";
+                        sb.AppendLine($"- {severityEmoji} **{check.Id}** [{check.Severity}]: {check.Description}");
+                        if (!string.IsNullOrEmpty(check.Guidance))
+                            sb.AppendLine($"  → {check.Guidance}");
+                    }
+                    sb.AppendLine();
+                }
+
+                // NNF standards
+                if (nnfChecks.Any())
+                {
+                    sb.AppendLine("### 📘 NNF STANDARDS (use nnf- prefix in CHECKID)");
+                    foreach (var check in nnfChecks)
+                    {
+                        string severityEmoji = check.Severity == Severity.Error ? "🔴" : check.Severity == Severity.Warning ? "🟡" : "🔵";
+                        sb.AppendLine($"- {severityEmoji} **{check.Id}** [{check.Severity}]: {check.Description}");
+                        if (!string.IsNullOrEmpty(check.Guidance))
+                            sb.AppendLine($"  → {check.Guidance}");
+                    }
+                    sb.AppendLine();
+                }
+
+                // Team learning patterns
+                if (teamChecks.Any())
+                {
+                    sb.AppendLine("### 📚 TEAM LEARNING (use team- prefix in CHECKID)");
+                    foreach (var check in teamChecks)
+                    {
+                        string severityEmoji = check.Severity == Severity.Error ? "🔴" : check.Severity == Severity.Warning ? "🟡" : "🔵";
+                        sb.AppendLine($"- {severityEmoji} **{check.Id}** [{check.Severity}]: {check.Description}");
+                        if (!string.IsNullOrEmpty(check.Guidance))
+                            sb.AppendLine($"  → {check.Guidance}");
+                    }
+                    sb.AppendLine();
+                }
+
+                // Other checks (no prefix - will show as AI Detection)
+                if (otherChecks.Any())
+                {
+                    sb.AppendLine("### 🤖 OTHER CHECKS (use 'none' in CHECKID for AI Detection)");
+                    foreach (var check in otherChecks)
+                    {
+                        string severityEmoji = check.Severity == Severity.Error ? "🔴" : check.Severity == Severity.Warning ? "🟡" : "🔵";
+                        sb.AppendLine($"- {severityEmoji} **{check.Id}** [{check.Severity}]: {check.Description}");
+                        if (!string.IsNullOrEmpty(check.Guidance))
+                            sb.AppendLine($"  → {check.Guidance}");
+                    }
+                    sb.AppendLine();
+                }
             }
 
             // Add additional context if provided (highest priority - user's explicit ask)

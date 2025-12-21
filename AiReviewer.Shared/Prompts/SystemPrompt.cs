@@ -22,6 +22,14 @@ Examine EVERY line of changed code carefully. Don't just catch obvious issues - 
 - Missing authentication/authorization checks
 - Path traversal, directory traversal vulnerabilities
 - Insecure deserialization
+- ⚠️ LOGGING SENSITIVE DATA (CRITICAL):
+  • NEVER log passwords, tokens, secrets, API keys, connection strings
+  • NEVER log authentication headers (Authorization, Bearer tokens, API-Key headers)
+  • NEVER log user credentials, session tokens, refresh tokens
+  • NEVER log PII (Personally Identifiable Information): SSN, credit cards, etc.
+  • NEVER log request/response bodies that may contain sensitive data
+  • Watch for: ToString() on auth objects, logging entire request objects
+  • If you see ANY sensitive data being logged, flag as HIGH SEVERITY Security issue!
 
 ⚡ PERFORMANCE:
 - N+1 database queries, missing batch operations
