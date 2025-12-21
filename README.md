@@ -1,98 +1,83 @@
-# AI Code Reviewer for Visual Studio 2022
+# AI Stage Reviewer for Visual Studio 2022
 
-**AI-Powered Code Review** - Get instant, comprehensive code review feedback on your staged changes before you commit!
-
-## Features
-
-✨ **Comprehensive Review Categories:**
-- 🔒 **Security** - SQL injection, hardcoded secrets, auth issues
-- ⚡ **Performance** - N+1 queries, inefficient algorithms, missing async/await
-- 🛡️ **Reliability** - Null checks, error handling, resource leaks
-- 🎯 **Code Quality** - Console.WriteLine detection, magic numbers, code duplication
-- 📝 **Best Practices** - SOLID principles, proper logging, naming conventions
-
-✨ **Smart Features:**
-- **One-Click Fixes** - Apply AI-suggested corrections instantly
-- **Context-Aware** - Understands your codebase patterns
-- **Project-Specific Rules** - Integrates with MerlinBot configuration
-- **Modern UI** - Clean WPF tool window with categorized results
+**AI-Powered Code Review** — Get instant code review feedback on your staged changes before you commit!
+---
 
 ## How It Works
 
-1. **Stage your changes** with `git add`
-2. **Click "Review Staged Changes"** from the Tools menu
-3. **Get instant feedback** with severity levels (High/Medium/Low)
-4. **Apply fixes** with one click or navigate to issues
+1. **Stage your changes** in Git
+2. **Click "Review Staged Changes"** in Visual Studio
+3. **Authenticate** with Azure AD (enterprise security)
+4. **Get instant feedback** with severity levels and confidence scores
+5. **Apply fixes** with one click or provide feedback to improve the AI
+---
 
 ## Requirements
 
 - Visual Studio 2022 (17.0 or higher)
 - Git repository with staged changes
-- Azure OpenAI API key (for AI-powered analysis)
+- Azure AD account (authorized by administrator)
+
+---
 
 ## Installation
 
-1. Download the `.vsix` file from [Releases](https://github.com/ankithkumarpal/Aireviewerextension/releases)
+1. Download the `.vsix` file from Releases
 2. Double-click to install
 3. Restart Visual Studio
-4. Configure your Azure OpenAI credentials in `.config/ai-reviewer/ai-reviewer-config.yaml`
+4. Open **View → Other Windows → AI Code Reviewer**
+
+---
 
 ## Configuration
 
-Create `.config/ai-reviewer/ai-reviewer-config.yaml` in your repository root:
+### Repository Rules (Optional)
+
+Create `.config/stagebot/stagebot.yaml` in your repository to define custom rules:
 
 ```yaml
-# AI Reviewer Configuration
-# Azure OpenAI credentials
-
-azureOpenAIEndpoint: https://your-instance.openai.azure.com/
-azureOpenAIKey: your-api-key-here
-deploymentName: gpt-4o-mini
+checks:
+  - id: repo-no-hardcoded-secrets
+    applies_to: ["*.cs"]
+    severity: High
+    description: "No hardcoded passwords or secrets"
+    guidance: "Use Azure Key Vault or configuration"
 ```
+---
 
 ## Usage
 
-### Menu Commands
-- **Tools → AI Code Reviewer → Review Staged Changes** - Analyze staged git changes
-- **View → Other Windows → AI Code Reviewer** - Open the results window
+1. **Stage changes** — `git add` your modified files
+2. **Open AI Code Reviewer** — View → Other Windows → AI Code Reviewer
+3. **Click "Review Staged Changes"**
+4. **Review findings** — Each shows severity, confidence, and suggested fix
+5. **Apply fixes** — Click "Apply Fix" for one-click corrections
+6. **Provide feedback** — Mark suggestions as helpful or not helpful
 
-### Keyboard Shortcuts
-You can assign custom shortcuts in Tools → Options → Keyboard
-
-## Screenshots
-
-![AI Code Review Results](https://via.placeholder.com/800x400?text=AI+Code+Review+Results)
+---
 
 ## Supported Languages
 
-Currently optimized for:
-- C#
+- C# (.cs files)
 - .NET projects
+
+---
 
 ## Privacy & Security
 
-- Your code is sent to Azure OpenAI for analysis
-- API keys are stored locally and never committed
-- No telemetry or data collection
+- **Azure AD authentication** — Only authorized users can access
+- **No local API keys** — Secure tokens used for all calls
+- **Auditable** — Every action is tied to user identity
+- **Your code is analyzed by Azure OpenAI** — No data stored permanently
+
+---
 
 ## Contributing
 
 Found a bug or have a feature request? Please open an issue!
 
-## License
-
-MIT License - See LICENSE file for details
-
-## Author
-
-**Ankith Pal**
-- GitHub: [@ankithkumarpal](https://github.com/ankithkumarpal)
-- LinkedIn: [ankithpal](https://linkedin.com/in/ankithpal)
-
-## Hackathon Project
-
-Built for **LIVE+ Network Fabric Hackathon 2025**
-
 ---
 
-** If you find this useful, please star the repository!**
+## License
+
+MIT License — See [LICENSE.txt](LICENSE.txt) for details.

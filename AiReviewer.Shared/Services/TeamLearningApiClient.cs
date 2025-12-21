@@ -1,5 +1,6 @@
 using System;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -10,32 +11,32 @@ namespace AiReviewer.Shared.Services
     /// <summary>
     /// HTTP client for communicating with the Team Learning API (Azure Function).
     /// 
-    /// This client is used when Team Learning is enabled in VS settings.
-    /// It sends feedback to and retrieves patterns from the shared Azure storage.
+    /// Supports two authentication modes:
+    /// 1. Azure AD Bearer token (recommended, secure)
+    /// 2. API Key (legacy, for backward compatibility)
     /// </summary>
     public class TeamLearningApiClient : IDisposable
     {
         private readonly HttpClient _httpClient;
         private readonly string _baseUrl;
-        private readonly string _apiKey;
         private readonly JsonSerializerOptions _jsonOptions;
+        private readonly Func<Task<string>> _tokenProvider;
         private bool _disposed;
 
         /// <summary>
-        /// Creates a new Team Learning API client.
+        /// Creates a new Team Learning API client with Azure AD authentication.
         /// </summary>
         /// <param name="baseUrl">Base URL of the API (e.g., https://my-func.azurewebsites.net/api)</param>
-        /// <param name="apiKey">API key for authentication</param>
-        public TeamLearningApiClient(string baseUrl, string apiKey)
+        /// <param name="tokenProvider">Function that returns a valid Azure AD access token</param>
+        public TeamLearningApiClient(string baseUrl, Func<Task<string>> tokenProvider)
         {
             _baseUrl = baseUrl?.TrimEnd('/') ?? throw new ArgumentNullException(nameof(baseUrl));
-            _apiKey = apiKey ?? throw new ArgumentNullException(nameof(apiKey));
+            _tokenProvider = tokenProvider ?? throw new ArgumentNullException(nameof(tokenProvider));
 
             _httpClient = new HttpClient
             {
                 Timeout = TimeSpan.FromSeconds(30)
             };
-            _httpClient.DefaultRequestHeaders.Add("X-Api-Key", _apiKey);
 
             _jsonOptions = new JsonSerializerOptions
             {
@@ -44,9 +45,67 @@ namespace AiReviewer.Shared.Services
             };
         }
 
-        // ─────────────────────────────────────────────────────────────────────────
-        // Submit Feedback
-        // ─────────────────────────────────────────────────────────────────────────
+        /// <summary>
+        /// Ensures the Authorization header has a valid Bearer token before each request.
+        /// </summary>
+        private async Task SetAuthHeaderAsync()
+        {
+            if (_tokenProvider != null)
+            {
+                var token = await _tokenProvider().ConfigureAwait(false);
+                if (!string.IsNullOrEmpty(token))
+                {
+                    _httpClient.DefaultRequestHeaders.Authorization = 
+                        new AuthenticationHeaderValue("Bearer", token);
+                    System.Diagnostics.Debug.WriteLine("[Auth] Bearer token set on request");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("[Auth] WARNING: Token provider returned null");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Fetches Azure OpenAI credentials from the centralized API.
+        /// This keeps credentials secure in Azure - no local config files needed!
+        /// </summary>
+        /// <returns>AI config with endpoint, key, and deployment name</returns>
+        public async Task<AiConfigApiResponse> GetAiConfigAsync()
+        {
+            try
+            {
+                await SetAuthHeaderAsync().ConfigureAwait(false);
+                
+                var url = $"{_baseUrl}/config";
+                System.Diagnostics.Debug.WriteLine($"[AI Reviewer] Fetching AI config from: {url}");
+
+                var response = await _httpClient.GetAsync(url).ConfigureAwait(false);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var error = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    System.Diagnostics.Debug.WriteLine($"[AI Reviewer] Config fetch failed: {response.StatusCode} - {error}");
+                    return new AiConfigApiResponse { Error = $"API Error: {response.StatusCode} - {error}" };
+                }
+
+                var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var config = JsonSerializer.Deserialize<AiConfigApiResponse>(json, _jsonOptions);
+
+                if (config == null || !config.IsValid)
+                {
+                    return new AiConfigApiResponse { Error = "Invalid response from server" };
+                }
+
+                System.Diagnostics.Debug.WriteLine($"[AI Reviewer] Config fetched successfully (deployment: {config.DeploymentName})");
+                return config;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[AI Reviewer] Config fetch error: {ex.Message}");
+                return new AiConfigApiResponse { Error = ex.Message };
+            }
+        }
 
         /// <summary>
         /// Submits feedback to the Team Learning API.
@@ -57,6 +116,8 @@ namespace AiReviewer.Shared.Services
         {
             try
             {
+                await SetAuthHeaderAsync().ConfigureAwait(false);
+                
                 var url = $"{_baseUrl}/feedback";
                 var json = JsonSerializer.Serialize(feedback, _jsonOptions);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -100,10 +161,6 @@ namespace AiReviewer.Shared.Services
             });
         }
 
-        // ─────────────────────────────────────────────────────────────────────────
-        // Get Patterns
-        // ─────────────────────────────────────────────────────────────────────────
-
         /// <summary>
         /// Gets learned patterns for a specific file extension.
         /// </summary>
@@ -119,6 +176,8 @@ namespace AiReviewer.Shared.Services
         {
             try
             {
+                await SetAuthHeaderAsync().ConfigureAwait(false);
+                
                 var ext = Uri.EscapeDataString(fileExtension.ToLowerInvariant());
                 var url = $"{_baseUrl}/patterns?ext={ext}&minOccurrences={minOccurrences}&maxResults={maxResults}&minAccuracy={minAccuracy}";
 
@@ -144,10 +203,6 @@ namespace AiReviewer.Shared.Services
             }
         }
 
-        // ─────────────────────────────────────────────────────────────────────────
-        // Get Stats
-        // ─────────────────────────────────────────────────────────────────────────
-
         /// <summary>
         /// Gets overall team learning statistics.
         /// </summary>
@@ -155,6 +210,8 @@ namespace AiReviewer.Shared.Services
         {
             try
             {
+                await SetAuthHeaderAsync().ConfigureAwait(false);
+                
                 var url = $"{_baseUrl}/stats";
                 var response = await _httpClient.GetAsync(url).ConfigureAwait(false);
 
@@ -177,10 +234,6 @@ namespace AiReviewer.Shared.Services
                 return null;
             }
         }
-
-        // ─────────────────────────────────────────────────────────────────────────
-        // Health Check
-        // ─────────────────────────────────────────────────────────────────────────
 
         /// <summary>
         /// Checks if the API is reachable and healthy.
@@ -216,10 +269,6 @@ namespace AiReviewer.Shared.Services
                 catch { /* Ignore */ }
             });
         }
-
-        // ─────────────────────────────────────────────────────────────────────────
-        // Dispose
-        // ─────────────────────────────────────────────────────────────────────────
 
         public void Dispose()
         {

@@ -1,5 +1,6 @@
 ﻿
-using AiReviewer.VSIX;
+using AiReviewer.VSIX.Commands;
+using AiReviewer.VSIX.ToolWindows;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Threading;
 using System;
@@ -14,20 +15,11 @@ namespace AiReviewer.VSIX
     [InstalledProductRegistration("AI Reviewer", "Review staged changes before PR", "1.0")]
     [ProvideMenuResource("Menus.ctmenu", 1)]
     [ProvideToolWindow(typeof(AiReviewerToolWindow))]
-    [ProvideOptionPage(typeof(TeamLearningOptionsPage), "AI Reviewer", "Team Learning", 0, 0, true)]
     [Guid(PackageGuidString)]
     public sealed class AiReviewerPackage : AsyncPackage
     {
         public const string PackageGuidString = "BA5749DA-8661-4E2F-9803-BA0FC420ACD6";
         public static AiReviewerPackage Instance { get; private set; }
-
-        /// <summary>
-        /// Gets the Team Learning options page.
-        /// </summary>
-        public TeamLearningOptionsPage TeamLearningOptions
-        {
-            get => (TeamLearningOptionsPage)GetDialogPage(typeof(TeamLearningOptionsPage));
-        }
 
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {

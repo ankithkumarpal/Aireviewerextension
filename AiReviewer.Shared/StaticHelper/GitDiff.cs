@@ -1,37 +1,22 @@
 ﻿// AiReviewer.Shared/Diff.cs
+using AiReviewer.Shared.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 
-namespace AiReviewer.Shared
+namespace AiReviewer.Shared.StaticHelper
 {
-    public class Hunk
-    {
-        public int StartLine { get; }
-        public List<string> Lines { get; }
-
-        public Hunk(int startLine, List<string> lines)
-        {
-            StartLine = startLine;
-            Lines = lines;
-        }
-    }
-
-    public class Patch
-    {
-        public string FilePath { get; }
-        public List<Hunk> Hunks { get; }
-
-        public Patch(string filePath, List<Hunk> hunks)
-        {
-            FilePath = filePath;
-            Hunks = hunks;
-        }
-    }
-
+    /// <summary>
+    /// Provides utilities for retrieving and parsing Git diffs.
+    /// </summary>
     public static class GitDiff
     {
+        /// <summary>
+        /// Finds the root directory of the current Git repository.
+        /// </summary>
+        /// <param name="startDirectory">The directory to start searching from. If null, uses the current directory.</param>
+        /// <returns>The absolute path to the repository root, or an empty string if not found.</returns>
         public static string FindRepoRoot(string? startDirectory = null)
         {
             try
@@ -41,7 +26,9 @@ namespace AiReviewer.Shared
                     FileName = "git",
                     Arguments = "rev-parse --show-toplevel",
                     RedirectStandardOutput = true,
+                    RedirectStandardError = true,
                     UseShellExecute = false,
+                    CreateNoWindow = true,
                     WorkingDirectory = startDirectory ?? Directory.GetCurrentDirectory()
                 };
                 using (var p = Process.Start(psi))
@@ -54,6 +41,11 @@ namespace AiReviewer.Shared
             catch { return string.Empty; }
         }
 
+        /// <summary>
+        /// Gets the staged unified diff for the repository, with extended context lines.
+        /// </summary>
+        /// <param name="repoRoot">The root directory of the Git repository.</param>
+        /// <returns>The unified diff as a string, or an empty string if unavailable.</returns>
         public static string GetStagedUnifiedDiff(string repoRoot)
         {
             var psi = new ProcessStartInfo
@@ -62,7 +54,9 @@ namespace AiReviewer.Shared
                 Arguments = "diff --cached --unified=30",  // Get 30 lines of context for comprehensive AI understanding
                 WorkingDirectory = repoRoot,
                 RedirectStandardOutput = true,
-                UseShellExecute = false
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
             };
             using (var p = Process.Start(psi))
             {
@@ -75,6 +69,11 @@ namespace AiReviewer.Shared
         }
 
         // Minimal unified diff parser: collects *added* lines (+) with their starting line
+        /// <summary>
+        /// Parses a unified diff string and extracts patches and hunks, focusing on added lines and context.
+        /// </summary>
+        /// <param name="diff">The unified diff string to parse.</param>
+        /// <returns>A list of <see cref="Patch"/> objects representing the parsed diff.</returns>
         public static List<Patch> ParseUnified(string diff)
         {
             var patches = new List<Patch>();
@@ -107,7 +106,7 @@ namespace AiReviewer.Shared
                     }
 
                     // Capture context lines (space prefix), added lines (+), but ignore deletions (-)
-                    if (line.StartsWith(" ") || (line.StartsWith("+") && !line.StartsWith("+++ ")))
+                    if (line.StartsWith(" ") || line.StartsWith("+") && !line.StartsWith("+++ "))
                     {
                         hunk?.Lines.Add(line); // Keep the prefix to show context vs additions
                     }

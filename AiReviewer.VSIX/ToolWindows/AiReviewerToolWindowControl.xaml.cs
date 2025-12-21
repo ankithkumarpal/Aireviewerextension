@@ -7,12 +7,14 @@ using System.Windows;
 using System.Windows.Controls;
 using Microsoft.VisualStudio.Shell;
 using EnvDTE;
+using AiReviewer.Shared.Enum;
 using AiReviewer.Shared.Models;
 using AiReviewer.Shared.Services;
 using AiReviewer.Shared.StaticHelper;
+using AiReviewer.VSIX.Configuration;
 using AiReviewer.VSIX.Services;
 
-namespace AiReviewer.VSIX
+namespace AiReviewer.VSIX.ToolWindows
 {
     public partial class AiReviewerToolWindowControl : UserControl
     {
@@ -349,14 +351,9 @@ namespace AiReviewer.VSIX
 
             UpdateProgress("🔐", "Authenticating...", "Signing in to Azure AD...");
 
-            // Create API client with Azure AD authentication
-            var apiClient = new TeamLearningApiClient(
-                AppConfig.ApiUrl, 
-                async () => await AzureAdAuthService.Instance.GetAccessTokenAsync()
-            );
-            
-            UpdateProgress("🔐", "Getting AI credentials...", "Connecting to API...");
-            
+            // Use Azure AD authentication
+            var apiClient = new TeamLearningApiClient(AppConfig.ApiUrl, 
+                () => AzureAdAuthService.Instance.GetAccessTokenAsync());
             var aiConfig = await apiClient.GetAiConfigAsync();
 
             if (!aiConfig.IsValid)
@@ -664,10 +661,8 @@ namespace AiReviewer.VSIX
             // Use Azure AD authentication
             if (AppConfig.EnableTeamLearning)
             {
-                return new TeamLearningApiClient(
-                    AppConfig.ApiUrl, 
-                    async () => await AzureAdAuthService.Instance.GetAccessTokenAsync()
-                );
+                return new TeamLearningApiClient(AppConfig.ApiUrl, 
+                    () => AzureAdAuthService.Instance.GetAccessTokenAsync());
             }
             return null;
         }
@@ -683,7 +678,7 @@ namespace AiReviewer.VSIX
                 var azureAdEmail = await AzureAdAuthService.Instance.GetCurrentUserAsync();
                 if (!string.IsNullOrEmpty(azureAdEmail))
                 {
-                    // Extract name from email (e.g., "john.doe@company.com" -> "john doe")
+                    // Extract name from email (e.g., "john.doe@company.com" -> "john.doe")
                     var atIndex = azureAdEmail.IndexOf('@');
                     if (atIndex > 0)
                     {
@@ -1065,12 +1060,12 @@ namespace AiReviewer.VSIX
         public string Confidence => string.IsNullOrEmpty(Result.Confidence) ? "Medium" : Result.Confidence;
         
         /// <summary>
-        /// Check ID from the checklist (e.g., nnf-async-002, team-LOGIC)
+        /// The specific check ID if matched (e.g., "nnf-async-002")
         /// </summary>
         public string CheckId => Result.CheckId ?? "";
         
         /// <summary>
-        /// Source of the rule (NNF, Repo, Team, AI)
+        /// Source of the rule: "NNF", "Repo", or "AI"
         /// </summary>
         public string RuleSource => Result.RuleSource ?? "AI";
         
@@ -1095,6 +1090,11 @@ namespace AiReviewer.VSIX
             "Team" => new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xD4, 0x8A, 0x06)), // Orange for Team Learning
             _ => new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x68, 0x21, 0x7A))       // Purple for AI
         };
+        
+        /// <summary>
+        /// Show check ID if available
+        /// </summary>
+        public string CheckIdDisplay => string.IsNullOrEmpty(CheckId) ? "" : $"[{CheckId}]";
         
         /// <summary>
         /// Visibility for the rule source badge

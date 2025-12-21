@@ -4,9 +4,10 @@ using System.Linq;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using EnvDTE;
-using AiReviewer.Shared;
+using AiReviewer.Shared.Services;
+using AiReviewer.Shared.Models;
 
-namespace AiReviewer.VSIX
+namespace AiReviewer.VSIX.Services
 {
     internal static class CodeFixApplier
     {
