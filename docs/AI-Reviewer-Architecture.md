@@ -1,5 +1,5 @@
 # AI Code Reviewer - Architecture & Flow Diagram
-## Flow Diagram : https://app.diagrams.net/#G1bgpxbn-kR0VAaaHSiR8csas5VgarEc5m#%7B%22pageId%22%3A%22Zg795h_uD8gRQGR4heOD%22%7D
+Flow Diagram : https://app.diagrams.net/#G1bgpxbn-kR0VAaaHSiR8csas5VgarEc5m#%7B%22pageId%22%3A%22Zg795h_uD8gRQGR4heOD%22%7D
 ## 🏗️ High-Level Architecture
 
 ```
