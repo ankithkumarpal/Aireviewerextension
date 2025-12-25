@@ -22,7 +22,7 @@
 
 ## Installation
 
-1. Download the `.vsix` file from Releases
+1. Download the extension from Releases : https://marketplace.visualstudio.com/items?itemName=AnkithPal.ai-code-reviewer-local
 2. Double-click to install
 3. Restart Visual Studio
 4. Open **View → Other Windows → AI Code Reviewer**
