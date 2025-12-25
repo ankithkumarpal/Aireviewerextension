@@ -1,4 +1,4 @@
-# AI Stage Reviewer for Visual Studio 2022
+# AI Stage Reviewer for Visual Studio
 
 **AI-Powered Code Review** — Get instant code review feedback on your staged changes before you commit!
 ---
