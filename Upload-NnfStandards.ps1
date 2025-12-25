@@ -14,9 +14,6 @@
 
 .PARAMETER ChangeDescription
     Description of what changed in this version
-
-.EXAMPLE
-    .\Upload-NnfStandards.ps1 -FunctionAppUrl "http://localhost:7071" -UpdatedBy "your-alias@microsoft.com" -ChangeDescription "Initial v1.0 NNF guidelines"
 #>
 
 param(
