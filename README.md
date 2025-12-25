@@ -24,7 +24,7 @@
 
 1. Download the extension from Releases : https://marketplace.visualstudio.com/items?itemName=AnkithPal.ai-code-reviewer-local
 2. Restart Visual Studio
-3. Open **View → Other Windows → AI Code Reviewer**
+3. Open **Tools → Review Staged Changes**
 
 ---
 
