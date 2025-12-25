@@ -23,9 +23,8 @@
 ## Installation
 
 1. Download the extension from Releases : https://marketplace.visualstudio.com/items?itemName=AnkithPal.ai-code-reviewer-local
-2. Double-click to install
-3. Restart Visual Studio
-4. Open **View → Other Windows → AI Code Reviewer**
+2. Restart Visual Studio
+3. Open **View → Other Windows → AI Code Reviewer**
 
 ---
 
@@ -66,7 +65,6 @@ checks:
 ## Privacy & Security
 
 - **Azure AD authentication** — Only authorized users can access
-- **No local API keys** — Secure tokens used for all calls
 - **Auditable** — Every action is tied to user identity
 - **Your code is analyzed by Azure OpenAI** — No data stored permanently
 
