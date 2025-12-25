@@ -47,7 +47,7 @@ checks:
 ## Usage
 
 1. **Stage changes** — `git add` your modified files
-2. **Open AI Code Reviewer** — View → Other Windows → AI Code Reviewer
+2. **Open AI Code Reviewer** — Tools → Review Stage changes
 3. **Click "Review Staged Changes"**
 4. **Review findings** — Each shows severity, confidence, and suggested fix
 5. **Apply fixes** — Click "Apply Fix" for one-click corrections
