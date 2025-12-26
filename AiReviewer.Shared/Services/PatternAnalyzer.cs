@@ -33,6 +33,10 @@ namespace AiReviewer.Shared.Services
         /// <param name="fileExtension">File extension to filter by</param>
         /// <param name="maxPatterns">Maximum patterns to return</param>
         /// <param name="minAccuracy">Minimum accuracy threshold</param>
+        /// <remarks>
+        /// This method blocks on async code. Prefer using <see cref="GetPatternsAsync"/> instead.
+        /// </remarks>
+        [Obsolete("Use GetPatternsAsync instead to avoid blocking on async code. This method may cause deadlocks in UI contexts.")]
         public List<FewShotExample> GetRelevantPatterns(
             string fileExtension = ".cs", 
             int maxPatterns = 20, 
@@ -40,8 +44,8 @@ namespace AiReviewer.Shared.Services
         {
             try
             {
-                return GetPatternsAsync(fileExtension, maxPatterns, minAccuracy)
-                    .GetAwaiter().GetResult();
+                // Use Task.Run to avoid deadlock in synchronization contexts
+                return Task.Run(() => GetPatternsAsync(fileExtension, maxPatterns, minAccuracy)).GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -21,6 +22,9 @@ namespace AiReviewer.VSIX.ToolWindows
         // Store all results for filtering
         private List<ReviewResult> _allResults = new List<ReviewResult>();
         private string _currentFilter = "All";
+        
+        // Cancellation support for review operations
+        private CancellationTokenSource _reviewCancellationTokenSource;
 
         public AiReviewerToolWindowControl()
         {
@@ -243,9 +247,14 @@ namespace AiReviewer.VSIX.ToolWindows
         {
             System.Diagnostics.Debug.WriteLine("=== REVIEW BUTTON CLICKED ===");
             
-            // Disable button immediately
+            // Create new cancellation token source for this review
+            _reviewCancellationTokenSource?.Dispose();
+            _reviewCancellationTokenSource = new CancellationTokenSource();
+            
+            // Disable review button, show cancel button
             ReviewButton.IsEnabled = false;
             ReviewButton.Content = "⏳ Reviewing...";
+            CancelButton.Visibility = Visibility.Visible;
             
             // Show progress panel RIGHT AWAY
             StreamingProgressPanel.Visibility = Visibility.Visible;
@@ -261,7 +270,13 @@ namespace AiReviewer.VSIX.ToolWindows
             
             try
             {
-                await RunReviewWithStreamingAsync();
+                await RunReviewWithStreamingAsync(_reviewCancellationTokenSource.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                System.Diagnostics.Debug.WriteLine("Review was cancelled by user");
+                SummaryText.Text = "⚠️ Review cancelled";
+                StreamingProgressPanel.Visibility = Visibility.Collapsed;
             }
             catch (Exception ex)
             {
@@ -273,7 +288,20 @@ namespace AiReviewer.VSIX.ToolWindows
             {
                 ReviewButton.IsEnabled = true;
                 ReviewButton.Content = "🔍 Review Staged Changes";
+                CancelButton.Visibility = Visibility.Collapsed;
+                CancelButton.IsEnabled = true;
+                CancelButton.Content = "❌ Cancel";
+                _reviewCancellationTokenSource?.Dispose();
+                _reviewCancellationTokenSource = null;
             }
+        }
+
+        private void CancelButton_Click(object sender, RoutedEventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine("=== CANCEL BUTTON CLICKED ===");
+            _reviewCancellationTokenSource?.Cancel();
+            CancelButton.IsEnabled = false;
+            CancelButton.Content = "Cancelling...";
         }
 
         private void UpdateProgress(string icon, string status, string details)
@@ -290,10 +318,11 @@ namespace AiReviewer.VSIX.ToolWindows
             StreamingDetailsText.Text = details;
         }
 
-        private async Task RunReviewWithStreamingAsync()
+        private async Task RunReviewWithStreamingAsync(CancellationToken cancellationToken)
         {
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
+            cancellationToken.ThrowIfCancellationRequested();
             UpdateProgress("📂", "Getting workspace...", "Finding solution or folder...");
 
             var dte = ServiceProvider.GlobalProvider.GetService(typeof(DTE)) as DTE;
@@ -311,10 +340,11 @@ namespace AiReviewer.VSIX.ToolWindows
                 return;
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             UpdateProgress("🔍", "Finding git repository...", workingDir);
             
             // Run git operations off UI thread
-            var repo = await Task.Run(() => GitDiff.FindRepoRoot(workingDir));
+            var repo = await Task.Run(() => GitDiff.FindRepoRoot(workingDir), cancellationToken);
             
             if (string.IsNullOrEmpty(repo))
             {
@@ -323,6 +353,7 @@ namespace AiReviewer.VSIX.ToolWindows
                 return;
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             UpdateProgress("📋", "Getting staged changes...", "Running git diff...");
             
             // Run git diff off UI thread
@@ -331,7 +362,7 @@ namespace AiReviewer.VSIX.ToolWindows
                 var d = GitDiff.GetStagedUnifiedDiff(repo);
                 var p = GitDiff.ParseUnified(d);
                 return (d, p);
-            });
+            }, cancellationToken);
 
             if (patches.Count == 0)
             {
@@ -340,6 +371,7 @@ namespace AiReviewer.VSIX.ToolWindows
                 return;
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             UpdateProgress("📝", $"Found {patches.Count} file(s)...", "Loading configuration...");
 
             // Load config off UI thread - searches standard paths:
@@ -347,58 +379,22 @@ namespace AiReviewer.VSIX.ToolWindows
             // 2. .config/stagebot/stagebot.yaml  
             // 3. .stagebot.yaml
             // 4. stagebot.yaml
-            var cfg = await Task.Run(() => StagebotConfigLoader.LoadFromRepository(repo) ?? new StagebotConfig());
+            var cfg = await Task.Run(() => StagebotConfigLoader.LoadFromRepository(repo) ?? new StagebotConfig(), cancellationToken);
 
+            cancellationToken.ThrowIfCancellationRequested();
             UpdateProgress("🔐", "Authenticating...", "Signing in to Azure AD...");
 
-            // Use Azure AD authentication
-            var apiClient = new TeamLearningApiClient(AppConfig.ApiUrl, 
+            // Use server-side review API (thin client architecture)
+            // All AI logic runs on the server - updates don't require new VSIX deployment
+            var reviewClient = new AiReviewer.Shared.Services.ReviewApiClient(
+                AppConfig.ReviewServiceUrl,
                 () => AzureAdAuthService.Instance.GetAccessTokenAsync());
-            var aiConfig = await apiClient.GetAiConfigAsync();
 
-            if (!aiConfig.IsValid)
-            {
-                SummaryText.Text = $"❌ AI service error: {aiConfig.Error}";
-                StreamingProgressPanel.Visibility = Visibility.Collapsed;
-                return;
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+            UpdateProgress("🤖", "Server is analyzing your code...", $"Reviewing {patches.Count} file(s) - this may take 10-30 seconds...");
 
-            UpdateProgress("🤖", "AI is analyzing your code...", $"Reviewing {patches.Count} file(s) - this may take 10-30 seconds...");
-
-            var aiService = new AiReviewService(aiConfig.AzureOpenAIEndpoint, aiConfig.AzureOpenAIKey, aiConfig.DeploymentName);
-            if (AppConfig.EnableTeamLearning)
-                aiService.SetTeamApiClient(apiClient);
-            
-            // Set up Standards service to fetch NNF standards from Azure
-            var standardsService = new AiReviewer.Shared.Services.StandardsService(
-                AppConfig.ApiUrl,
-                async () => await AzureAdAuthService.Instance.GetAccessTokenAsync());
-            aiService.SetStandardsService(standardsService);
-
-            // Use streaming review with progress callback
-            var results = await aiService.ReviewCodeWithStreamingAsync(patches, cfg, repo, progress =>
-            {
-                // Update UI on dispatcher
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    switch (progress.Type)
-                    {
-                        case ReviewProgressType.BuildingPrompt:
-                            UpdateProgress("📝", "Building prompt...", "Gathering file context...");
-                            break;
-                        case ReviewProgressType.CallingAI:
-                            UpdateProgress("📡", "Sending to AI...", "Waiting for response...");
-                            break;
-                        case ReviewProgressType.Streaming:
-                            var charCount = progress.PartialResponse?.Length ?? 0;
-                            UpdateProgress("💬", "Receiving response...", $"{charCount} characters received...");
-                            break;
-                        case ReviewProgressType.ParsingResults:
-                            UpdateProgress("🔍", "Parsing results...", "Extracting issues from response...");
-                            break;
-                    }
-                }));
-            });
+            // Call server-side review API
+            var results = await reviewClient.ReviewCodeAsync(patches, cfg, repo, cancellationToken);
 
             foreach (var result in results)
                 result.RepositoryPath = repo;

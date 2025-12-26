@@ -373,9 +373,11 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <Button Name="ReviewButton" Content="🔍 Review Staged Changes" Grid.Column="0" Click="ReviewButton_Click" HorizontalAlignment="Stretch" Margin="0,0,8,0" Style="{StaticResource BlueButtonStyle}" FontWeight="Bold" Padding="12,5"/>
-                <Button Name="ShowStatsButton" Content="🧠 Stats" Grid.Column="1" Click="ShowStatsButton_Click" HorizontalAlignment="Right" Style="{StaticResource GrayButtonStyle}" Padding="12,5"/>
+                <Button Name="CancelButton" Content="❌ Cancel" Grid.Column="1" Click="CancelButton_Click" Visibility="Collapsed" HorizontalAlignment="Right" Margin="0,0,8,0" Style="{StaticResource GrayButtonStyle}" Padding="12,5"/>
+                <Button Name="ShowStatsButton" Content="🧠 Stats" Grid.Column="2" Click="ShowStatsButton_Click" HorizontalAlignment="Right" Style="{StaticResource GrayButtonStyle}" Padding="12,5"/>
             </Grid>
         </Border>
     </Grid>

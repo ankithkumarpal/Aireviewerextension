@@ -2,6 +2,7 @@ using System;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using AiReviewer.Shared.Models;
 using AiReviewer.Shared.StaticHelper;
@@ -9,7 +10,8 @@ using AiReviewer.Shared.StaticHelper;
 namespace AiReviewer.Shared.Services
 {
     /// <summary>
-    /// Service to fetch and cache NNF standards from the API
+    /// Service to fetch and cache NNF standards from the API.
+    /// Thread-safe implementation using SemaphoreSlim for cache access.
     /// </summary>
     public class StandardsService
     {
@@ -17,12 +19,13 @@ namespace AiReviewer.Shared.Services
         private readonly string _baseUrl;
         private readonly Func<Task<string>> _tokenProvider;
 
-        // Cache
-        private static StagebotConfig _cachedNnfStandards;
+        // Thread-safe cache
+        private static StagebotConfig? _cachedNnfStandards;
         private static DateTime _cacheExpiry = DateTime.MinValue;
         private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
+        private static readonly SemaphoreSlim _cacheLock = new SemaphoreSlim(1, 1);
 
-        public StandardsService(string baseUrl, Func<Task<string>> tokenProvider, HttpClient httpClient = null)
+        public StandardsService(string baseUrl, Func<Task<string>> tokenProvider, HttpClient? httpClient = null)
         {
             _baseUrl = baseUrl.TrimEnd('/');
             _tokenProvider = tokenProvider;
@@ -30,29 +33,37 @@ namespace AiReviewer.Shared.Services
         }
 
         /// <summary>
-        /// Get NNF standards from API (with caching)
+        /// Get NNF standards from API (with thread-safe caching)
         /// </summary>
-        public async Task<StagebotConfig> GetNnfStandardsAsync(bool forceRefresh = false)
+        public async Task<StagebotConfig?> GetNnfStandardsAsync(bool forceRefresh = false)
         {
-            // Return cached if valid
+            // Fast path: Return cached if valid (no lock needed for read)
             if (!forceRefresh && _cachedNnfStandards != null && DateTime.UtcNow < _cacheExpiry)
             {
                 System.Diagnostics.Debug.WriteLine("[Standards] Using cached NNF standards");
                 return _cachedNnfStandards;
             }
 
+            // Acquire lock for cache update
+            await _cacheLock.WaitAsync().ConfigureAwait(false);
             try
             {
+                // Double-check after acquiring lock (another thread may have updated cache)
+                if (!forceRefresh && _cachedNnfStandards != null && DateTime.UtcNow < _cacheExpiry)
+                {
+                    return _cachedNnfStandards;
+                }
+
                 // Set auth header
-                var token = await _tokenProvider();
+                var token = await _tokenProvider().ConfigureAwait(false);
                 _http.DefaultRequestHeaders.Authorization = 
                     new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
-                var response = await _http.GetAsync($"{_baseUrl}/api/standards/nnf");
+                var response = await _http.GetAsync($"{_baseUrl}/api/standards/nnf").ConfigureAwait(false);
                 
                 if (response.IsSuccessStatusCode)
                 {
-                    var json = await response.Content.ReadAsStringAsync();
+                    var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                     var result = JsonSerializer.Deserialize<NnfStandardsResponse>(json, new JsonSerializerOptions
                     {
                         PropertyNameCaseInsensitive = true
@@ -80,6 +91,10 @@ namespace AiReviewer.Shared.Services
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[Standards] Failed to fetch NNF standards: {ex.Message}");
+            }
+            finally
+            {
+                _cacheLock.Release();
             }
 
             // Return cached if available, else null (will use embedded defaults)
@@ -162,12 +177,39 @@ namespace AiReviewer.Shared.Services
         }
 
         /// <summary>
-        /// Clear the cache (useful for testing or manual refresh)
+        /// Clear the cache (useful for testing or manual refresh).
+        /// Thread-safe operation.
+        /// </summary>
+        public static async Task ClearCacheAsync()
+        {
+            await _cacheLock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                _cachedNnfStandards = null;
+                _cacheExpiry = DateTime.MinValue;
+            }
+            finally
+            {
+                _cacheLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// Clear the cache synchronously (useful for testing or manual refresh).
+        /// Thread-safe operation.
         /// </summary>
         public static void ClearCache()
         {
-            _cachedNnfStandards = null;
-            _cacheExpiry = DateTime.MinValue;
+            _cacheLock.Wait();
+            try
+            {
+                _cachedNnfStandards = null;
+                _cacheExpiry = DateTime.MinValue;
+            }
+            finally
+            {
+                _cacheLock.Release();
+            }
         }
 
         private StagebotConfig ParseYaml(string yaml)

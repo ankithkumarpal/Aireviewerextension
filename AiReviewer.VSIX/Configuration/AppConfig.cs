@@ -7,11 +7,17 @@ namespace AiReviewer.VSIX.Configuration
     internal static class AppConfig
     {
         /// <summary>
-        /// Azure Function API URL
+        /// Review Service API URL (handles AI code reviews)
+        /// For local testing: http://localhost:5121/api
+        /// For production: Deploy AiReviewer.ReviewService to Azure App Service
+        /// </summary>
+        public const string ReviewServiceUrl = "http://localhost:5121/api";
+        
+        /// <summary>
+        /// Azure Functions API URL (handles standards, feedback, patterns)
         /// </summary>
         public const string ApiUrl = "https://ai-reviewer-teamlearning-apc4dvfhgxaze3h9.eastus-01.azurewebsites.net/api";
 
-        // ============================================================
         // AZURE AD CONFIGURATION
 
         /// <summary>

@@ -4,6 +4,12 @@
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
     "TableStorageConnection": "UseDevelopmentStorage=true",
-    "ApiKey": "your-secret-api-key-here"
+    "ApiKey": "your-secret-api-key-here",
+    "AzureOpenAIEndpoint": "https://your-openai-resource.openai.azure.com",
+    "AzureOpenAIKey": "your-azure-openai-api-key",
+    "AzureOpenAIDeployment": "gpt-4o-mini",
+    "StandardsApiUrl": "https://ai-reviewer-teamlearning-apc4dvfhgxaze3h9.eastus-01.azurewebsites.net/api",
+    "TeamLearningApiUrl": "https://ai-reviewer-teamlearning-apc4dvfhgxaze3h9.eastus-01.azurewebsites.net/api",
+    "EnableTeamLearning": "true"
   }
 }

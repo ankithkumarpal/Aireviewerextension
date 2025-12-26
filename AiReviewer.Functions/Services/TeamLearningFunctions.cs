@@ -87,6 +87,15 @@ public class TeamLearningFunctions
                 return badRequest;
             }
 
+            // Validate required fields
+            var validationErrors = ValidateFeedbackRequest(feedbackRequest);
+            if (validationErrors.Count > 0)
+            {
+                var badRequest = request.CreateResponse(HttpStatusCode.BadRequest);
+                await badRequest.WriteAsJsonAsync(new { error = "Validation failed", details = validationErrors });
+                return badRequest;
+            }
+
             // Create table if it doesn't exist
             var tableClient = _tableServiceClient.GetTableClient(TableName);
             await tableClient.CreateIfNotExistsAsync();
@@ -97,12 +106,12 @@ public class TeamLearningFunctions
                 PartitionKey = feedbackRequest.FileExtension.ToLowerInvariant(),
                 RowKey = Guid.NewGuid().ToString(),
                 Rule = feedbackRequest.Rule,
-                CodeSnippet = TruncateIfNeeded(feedbackRequest.CodeSnippet, 30000),
-                Suggestion = TruncateIfNeeded(feedbackRequest.Suggestion, 30000),
+                CodeSnippet = TruncateIfNeeded(feedbackRequest.CodeSnippet, 64000),
+                Suggestion = TruncateIfNeeded(feedbackRequest.Suggestion, 64000),
                 IssueHash = feedbackRequest.IssueHash,
                 IsHelpful = feedbackRequest.IsHelpful,
-                Reason = feedbackRequest.Reason,
-                Correction = feedbackRequest.Correction,
+                Reason = TruncateIfNeeded(feedbackRequest.Reason, 1000),
+                Correction = TruncateIfNeeded(feedbackRequest.Correction, 64000),
                 Contributor = feedbackRequest.Contributor,
                 Repository = feedbackRequest.Repository,
                 FeedbackDate = DateTime.UtcNow
@@ -373,6 +382,86 @@ public class TeamLearningFunctions
     }
 
     // Helper Methods
+
+    /// <summary>
+    /// Validates a FeedbackRequest and returns a list of validation errors.
+    /// </summary>
+    private static List<string> ValidateFeedbackRequest(FeedbackRequest request)
+    {
+        var errors = new List<string>();
+
+        // FileExtension validation
+        if (string.IsNullOrWhiteSpace(request.FileExtension))
+        {
+            errors.Add("FileExtension is required");
+        }
+        else if (!request.FileExtension.StartsWith("."))
+        {
+            errors.Add("FileExtension must start with a dot (e.g., '.cs')");
+        }
+        else if (request.FileExtension.Length > 20)
+        {
+            errors.Add("FileExtension must be 20 characters or less");
+        }
+
+        // Rule validation
+        if (string.IsNullOrWhiteSpace(request.Rule))
+        {
+            errors.Add("Rule is required");
+        }
+        else if (request.Rule.Length > 100)
+        {
+            errors.Add("Rule must be 100 characters or less");
+        }
+
+        // CodeSnippet validation (optional but with max length - Azure Table limit ~64KB)
+        if (!string.IsNullOrEmpty(request.CodeSnippet) && request.CodeSnippet.Length > 64000)
+        {
+            errors.Add("CodeSnippet must be 64,000 characters or less");
+        }
+
+        // Suggestion validation (optional but with max length - Azure Table limit ~64KB)
+        if (!string.IsNullOrEmpty(request.Suggestion) && request.Suggestion.Length > 64000)
+        {
+            errors.Add("Suggestion must be 64,000 characters or less");
+        }
+
+        // IssueHash validation
+        if (string.IsNullOrWhiteSpace(request.IssueHash))
+        {
+            errors.Add("IssueHash is required");
+        }
+        else if (request.IssueHash.Length > 64)
+        {
+            errors.Add("IssueHash must be 64 characters or less");
+        }
+
+        // Contributor validation (optional but with max length)
+        if (!string.IsNullOrEmpty(request.Contributor) && request.Contributor.Length > 100)
+        {
+            errors.Add("Contributor must be 100 characters or less");
+        }
+
+        // Repository validation (optional but with max length)
+        if (!string.IsNullOrEmpty(request.Repository) && request.Repository.Length > 200)
+        {
+            errors.Add("Repository must be 200 characters or less");
+        }
+
+        // Reason validation (optional but with max length)
+        if (!string.IsNullOrEmpty(request.Reason) && request.Reason.Length > 1000)
+        {
+            errors.Add("Reason must be 1,000 characters or less");
+        }
+
+        // Correction validation (optional but with max length - Azure Table limit ~64KB)
+        if (!string.IsNullOrEmpty(request.Correction) && request.Correction.Length > 64000)
+        {
+            errors.Add("Correction must be 64,000 characters or less");
+        }
+
+        return errors;
+    }
 
     /// <summary>
     /// Truncates a string if it exceeds the maximum length.

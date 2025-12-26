@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Azure;
 using Azure.AI.OpenAI;
@@ -11,6 +12,8 @@ using System.ClientModel;
 using AiReviewer.Shared.Models;
 using AiReviewer.Shared.Enum;
 using AiReviewer.Shared.Prompts;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AiReviewer.Shared.Services
 {
@@ -19,15 +22,24 @@ namespace AiReviewer.Shared.Services
         private readonly string _endpoint;
         private readonly string _apiKey;
         private readonly string _deploymentName;
-        private string _currentRepositoryPath;
-        private TeamLearningApiClient _teamApiClient;
-        private StandardsService _standardsService;
+        private readonly ILogger _logger;
+        private string? _currentRepositoryPath;
+        private TeamLearningApiClient? _teamApiClient;
+        private StandardsService? _standardsService;
 
-        public AiReviewService(string endpoint, string apiKey, string deploymentName)
+        /// <summary>
+        /// Creates a new AiReviewService with optional logging.
+        /// </summary>
+        /// <param name="endpoint">Azure OpenAI endpoint URL</param>
+        /// <param name="apiKey">Azure OpenAI API key</param>
+        /// <param name="deploymentName">Azure OpenAI deployment name</param>
+        /// <param name="logger">Optional logger instance. If null, logging is disabled.</param>
+        public AiReviewService(string endpoint, string apiKey, string deploymentName, ILogger? logger = null)
         {
             _endpoint = endpoint;
             _apiKey = apiKey;
             _deploymentName = deploymentName;
+            _logger = logger ?? NullLogger<AiReviewService>.Instance;
         }
 
         /// <summary>
@@ -47,16 +59,46 @@ namespace AiReviewer.Shared.Services
         }
 
         /// <summary>
+        /// Sets NNF standards directly (for server-side use without HTTP calls)
+        /// </summary>
+        public void SetNnfStandards(StagebotConfig standards)
+        {
+            _directNnfStandards = standards;
+        }
+
+        /// <summary>
+        /// Sets learned patterns context directly (for server-side use without HTTP calls)
+        /// </summary>
+        public void SetLearnedPatterns(string patternsContext)
+        {
+            _directLearnedPatternsContext = patternsContext;
+        }
+
+        private StagebotConfig? _directNnfStandards;
+        private string? _directLearnedPatternsContext;
+
+        /// <summary>
         /// Reviews code with streaming progress updates for better UX
         /// Uses optimized prompt structure: System (cached) + User (dynamic)
         /// </summary>
+        /// <param name="patches">List of code patches to review</param>
+        /// <param name="config">Configuration for the review</param>
+        /// <param name="repositoryPath">Path to the repository</param>
+        /// <param name="onProgress">Callback for progress updates</param>
+        /// <param name="cancellationToken">Token to cancel the operation</param>
+        /// <returns>List of review results</returns>
+        /// <exception cref="OperationCanceledException">Thrown when cancellation is requested</exception>
         public async Task<List<ReviewResult>> ReviewCodeWithStreamingAsync(
             List<Patch> patches, 
             StagebotConfig config, 
             string repositoryPath,
-            Action<ReviewProgressUpdate> onProgress)
+            Action<ReviewProgressUpdate> onProgress,
+            CancellationToken cancellationToken = default)
         {
             _currentRepositoryPath = repositoryPath;
+            
+            // Check for cancellation before starting
+            cancellationToken.ThrowIfCancellationRequested();
             
             // Report: Started
             onProgress?.Invoke(new ReviewProgressUpdate
@@ -76,9 +118,20 @@ namespace AiReviewer.Shared.Services
                 Message = "Analyzing code and building context..."
             });
 
-            // Get merged config: StandardsService > provided config > EmbeddedStandards
+            // Get merged config: DirectStandards > StandardsService > provided config > EmbeddedStandards
             var effectiveConfig = config;
-            if (_standardsService != null)
+            
+            // Use direct standards if set (server-side scenario - no HTTP needed)
+            if (_directNnfStandards != null)
+            {
+                effectiveConfig = MergeConfigs(_directNnfStandards, config);
+                onProgress?.Invoke(new ReviewProgressUpdate
+                {
+                    Type = ReviewProgressType.BuildingPrompt,
+                    Message = $"Loaded {effectiveConfig.Checks?.Count ?? 0} checks from standards..."
+                });
+            }
+            else if (_standardsService != null)
             {
                 try
                 {
@@ -91,55 +144,67 @@ namespace AiReviewer.Shared.Services
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[AiReview] Standards fetch failed, using provided config: {ex.Message}");
+                    _logger.LogWarning(ex, "Standards fetch failed, using provided config");
                 }
             }
             
             // Fallback to embedded standards if no checks configured
             if (effectiveConfig?.Checks == null || !effectiveConfig.Checks.Any())
             {
-                System.Diagnostics.Debug.WriteLine("[AiReview] No checks in config, using EmbeddedStandards");
+                _logger.LogDebug("No checks in config, using EmbeddedStandards");
                 effectiveConfig = EmbeddedStandards.GetDefaults();
             }
             
             // Log effective checks for debugging
-            System.Diagnostics.Debug.WriteLine($"[AiReview] Effective config has {effectiveConfig.Checks?.Count ?? 0} checks:");
-            foreach (var check in effectiveConfig.Checks?.Take(5) ?? new List<Check>())
+            _logger.LogDebug("Effective config has {CheckCount} checks", effectiveConfig.Checks?.Count ?? 0);
+            if (_logger.IsEnabled(LogLevel.Trace))
             {
-                System.Diagnostics.Debug.WriteLine($"  - {check.Id}: {check.Description}");
+                foreach (var check in effectiveConfig.Checks?.Take(5) ?? new List<Check>())
+                {
+                    _logger.LogTrace("  Check: {CheckId} - {Description}", check.Id, check.Description);
+                }
             }
 
             // AI LEARNING: Get patterns learned from user feedback
-            string learnedPatternsContext = null;
-            try
+            // Use direct patterns if set (server-side scenario - no HTTP needed)
+            string? learnedPatternsContext = _directLearnedPatternsContext;
+            
+            if (string.IsNullOrEmpty(learnedPatternsContext))
             {
-                if (!string.IsNullOrEmpty(repositoryPath) && _teamApiClient != null)
+                try
                 {
-                    var patternAnalyzer = new PatternAnalyzer(repositoryPath, _teamApiClient);
-                    
-                    // Get relevant few-shot examples from Azure
-                    var fileExtension = patches.FirstOrDefault()?.FilePath != null 
-                        ? Path.GetExtension(patches.First().FilePath)?.ToLowerInvariant() 
-                        : ".cs";
-                    
-                    var examples = patternAnalyzer.GetRelevantPatterns(fileExtension ?? ".cs", maxPatterns: 15, minAccuracy: 35.0);
-                    
-                    if (examples.Count > 0)
+                    if (!string.IsNullOrEmpty(repositoryPath) && _teamApiClient != null)
                     {
-                        learnedPatternsContext = patternAnalyzer.FormatExamplesForPrompt(examples);
-                        System.Diagnostics.Debug.WriteLine($"[AiReview] Injected {examples.Count} learned patterns into prompt");
+                        var patternAnalyzer = new PatternAnalyzer(repositoryPath, _teamApiClient);
                         
-                        onProgress?.Invoke(new ReviewProgressUpdate
+                        // Get relevant few-shot examples from Azure
+                        var fileExtension = patches.FirstOrDefault()?.FilePath != null 
+                            ? Path.GetExtension(patches.First().FilePath)?.ToLowerInvariant() 
+                            : ".cs";
+                        
+                        var examples = await patternAnalyzer.GetPatternsAsync(fileExtension ?? ".cs", maxPatterns: 15, minAccuracy: 35.0).ConfigureAwait(false);
+                        
+                        if (examples.Count > 0)
                         {
-                            Type = ReviewProgressType.BuildingPrompt,
-                            Message = $"Loaded {examples.Count} learned patterns from team feedback..."
-                        });
+                            learnedPatternsContext = patternAnalyzer.FormatExamplesForPrompt(examples);
+                            _logger.LogDebug("Injected {PatternCount} learned patterns into prompt", examples.Count);
+                            
+                            onProgress?.Invoke(new ReviewProgressUpdate
+                            {
+                                Type = ReviewProgressType.BuildingPrompt,
+                                Message = $"Loaded {examples.Count} learned patterns from team feedback..."
+                            });
+                        }
                     }
                 }
+                catch (Exception ex) 
+                { 
+                    _logger.LogWarning(ex, "Could not load learned patterns");
+                }
             }
-            catch (Exception ex) 
-            { 
-                System.Diagnostics.Debug.WriteLine($"[AiReview] Warning: Could not load learned patterns: {ex.Message}");
+            else
+            {
+                _logger.LogDebug("Using direct learned patterns context");
             }
 
             // Build optimized prompts (System = cached, User = dynamic with file context)
@@ -147,8 +212,9 @@ namespace AiReviewer.Shared.Services
             var estimatedTokens = ChecklistProvider.EstimateTokens(SystemPrompt.ReviewInstructions + userPrompt);
             
             // Log prompt for debugging
-            System.Diagnostics.Debug.WriteLine($"[AiReview] Estimated tokens: {estimatedTokens} (System: {SystemPrompt.ReviewInstructions.Length/4}, User: {userPrompt.Length/4})");
-            System.Diagnostics.Debug.WriteLine($"[AiReview] User prompt preview (first 500 chars):\n{userPrompt.Substring(0, Math.Min(500, userPrompt.Length))}...");
+            _logger.LogDebug("Estimated tokens: {TotalTokens} (System: {SystemTokens}, User: {UserTokens})", 
+                estimatedTokens, SystemPrompt.ReviewInstructions.Length/4, userPrompt.Length/4);
+            _logger.LogTrace("User prompt preview: {PromptPreview}...", userPrompt.Substring(0, Math.Min(500, userPrompt.Length)));
 
             var messages = new List<ChatMessage>
             {
@@ -163,6 +229,9 @@ namespace AiReviewer.Shared.Services
                 Message = $"Sending to AI for review (~{estimatedTokens} tokens)..."
             });
 
+            // Check for cancellation before making API call
+            cancellationToken.ThrowIfCancellationRequested();
+
             // Use streaming API
             var responseBuilder = new StringBuilder();
             var streamingOptions = new ChatCompletionOptions
@@ -171,8 +240,11 @@ namespace AiReviewer.Shared.Services
                 MaxOutputTokenCount = 2000
             };
 
-            await foreach (var update in chatClient.CompleteChatStreamingAsync(messages, streamingOptions))
+            await foreach (var update in chatClient.CompleteChatStreamingAsync(messages, streamingOptions).WithCancellation(cancellationToken))
             {
+                // Check for cancellation during streaming
+                cancellationToken.ThrowIfCancellationRequested();
+                
                 foreach (var contentPart in update.ContentUpdate)
                 {
                     responseBuilder.Append(contentPart.Text);
@@ -216,7 +288,7 @@ namespace AiReviewer.Shared.Services
                 PartialResults = results
             });
 
-            System.Diagnostics.Debug.WriteLine($"Streaming review complete: {results.Count} issues");
+            _logger.LogInformation("Streaming review complete: found {IssueCount} issues", results.Count);
             return results;
         }
 
@@ -224,79 +296,112 @@ namespace AiReviewer.Shared.Services
         /// Reviews code (non-streaming version for backward compatibility)
         /// Uses optimized prompt structure: System (cached) + User (dynamic)
         /// </summary>
-        public async Task<List<ReviewResult>> ReviewCodeAsync(List<Patch> patches, StagebotConfig config, string repositoryPath = null)
+        /// <param name="patches">List of code patches to review</param>
+        /// <param name="config">Configuration for the review</param>
+        /// <param name="repositoryPath">Path to the repository</param>
+        /// <param name="cancellationToken">Token to cancel the operation</param>
+        /// <returns>List of review results</returns>
+        /// <exception cref="OperationCanceledException">Thrown when cancellation is requested</exception>
+        public async Task<List<ReviewResult>> ReviewCodeAsync(
+            List<Patch> patches, 
+            StagebotConfig config, 
+            string repositoryPath = null,
+            CancellationToken cancellationToken = default)
         {
+            // Check for cancellation before starting
+            cancellationToken.ThrowIfCancellationRequested();
+            
             // Store repository path for learning system
             _currentRepositoryPath = repositoryPath;
             
-            // DEBUG: Log patches being reviewed
-            System.Diagnostics.Debug.WriteLine($"=== AI REVIEW START ===");
-            System.Diagnostics.Debug.WriteLine($"Reviewing {patches.Count} file(s)");
-            foreach (var p in patches)
+            // Log review start
+            _logger.LogInformation("Starting AI review of {FileCount} file(s)", patches.Count);
+            if (_logger.IsEnabled(LogLevel.Debug))
             {
-                System.Diagnostics.Debug.WriteLine($"  - {p.FilePath}: {p.Hunks.Count} hunk(s)");
+                foreach (var p in patches)
+                {
+                    _logger.LogDebug("  File: {FilePath} with {HunkCount} hunk(s)", p.FilePath, p.Hunks.Count);
+                }
             }
             
             var client = new AzureOpenAIClient(new Uri(_endpoint), new ApiKeyCredential(_apiKey));
             var chatClient = client.GetChatClient(_deploymentName);
             
-            // Get merged config: StandardsService > provided config > EmbeddedStandards
+            // Get merged config: DirectStandards > StandardsService > provided config > EmbeddedStandards
             var effectiveConfig = config;
-            if (_standardsService != null)
+            
+            // Use direct standards if set (server-side scenario - no HTTP needed)
+            if (_directNnfStandards != null)
+            {
+                effectiveConfig = MergeConfigs(_directNnfStandards, config);
+                _logger.LogDebug("Using direct standards: {CheckCount} checks", effectiveConfig.Checks?.Count ?? 0);
+            }
+            else if (_standardsService != null)
             {
                 try
                 {
                     effectiveConfig = await _standardsService.GetMergedConfigAsync(repositoryPath);
-                    System.Diagnostics.Debug.WriteLine($"[AiReview] Using merged config: {effectiveConfig.Checks?.Count ?? 0} checks");
+                    _logger.LogDebug("Using merged config: {CheckCount} checks", effectiveConfig.Checks?.Count ?? 0);
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[AiReview] Standards fetch failed: {ex.Message}");
+                    _logger.LogWarning(ex, "Standards fetch failed");
                 }
             }
             
             // Fallback to embedded standards if no checks configured
             if (effectiveConfig?.Checks == null || !effectiveConfig.Checks.Any())
             {
-                System.Diagnostics.Debug.WriteLine("[AiReview] No checks in config, using EmbeddedStandards");
+                _logger.LogDebug("No checks in config, using EmbeddedStandards");
                 effectiveConfig = EmbeddedStandards.GetDefaults();
             }
 
             // AI LEARNING: Get patterns learned from user feedback
-            string learnedPatternsContext = null;
-            try
+            // Use direct patterns if set (server-side scenario - no HTTP needed)
+            string? learnedPatternsContext = _directLearnedPatternsContext;
+            
+            if (string.IsNullOrEmpty(learnedPatternsContext))
             {
-                if (!string.IsNullOrEmpty(repositoryPath) && _teamApiClient != null)
+                try
                 {
-                    var patternAnalyzer = new PatternAnalyzer(repositoryPath, _teamApiClient);
-                    
-                    // Get relevant few-shot examples from Azure
-                    var fileExtension = patches.FirstOrDefault()?.FilePath != null 
-                        ? Path.GetExtension(patches.First().FilePath)?.ToLowerInvariant() 
-                        : ".cs";
-                    
-                    var examples = patternAnalyzer.GetRelevantPatterns(fileExtension ?? ".cs", maxPatterns: 15, minAccuracy: 35.0);
-                    
-                    if (examples.Count > 0)
+                    if (!string.IsNullOrEmpty(repositoryPath) && _teamApiClient != null)
                     {
-                        learnedPatternsContext = patternAnalyzer.FormatExamplesForPrompt(examples);
-                        System.Diagnostics.Debug.WriteLine($"[AiReview] Injected {examples.Count} learned patterns into prompt");
+                        var patternAnalyzer = new PatternAnalyzer(repositoryPath, _teamApiClient);
+                        
+                        // Get relevant few-shot examples from Azure
+                        var fileExtension = patches.FirstOrDefault()?.FilePath != null 
+                            ? Path.GetExtension(patches.First().FilePath)?.ToLowerInvariant() 
+                            : ".cs";
+                        
+                        var examples = await patternAnalyzer.GetPatternsAsync(fileExtension ?? ".cs", maxPatterns: 15, minAccuracy: 35.0).ConfigureAwait(false);
+                        
+                        if (examples.Count > 0)
+                        {
+                            learnedPatternsContext = patternAnalyzer.FormatExamplesForPrompt(examples);
+                            _logger.LogDebug("Injected {PatternCount} learned patterns into prompt", examples.Count);
+                        }
                     }
                 }
+                catch (Exception ex) 
+                { 
+                    _logger.LogWarning(ex, "Could not load learned patterns");
+                }
             }
-            catch (Exception ex) 
-            { 
-                System.Diagnostics.Debug.WriteLine($"[AiReview] Warning: Could not load learned patterns: {ex.Message}");
+            else
+            {
+                _logger.LogDebug("Using direct learned patterns context");
             }
 
             // Build optimized prompts (with file context for better AI understanding)
             var userPrompt = ChecklistProvider.BuildUserPrompt(patches, effectiveConfig, repositoryPath, learnedPatternsContext);
             var estimatedTokens = ChecklistProvider.EstimateTokens(SystemPrompt.ReviewInstructions + userPrompt);
 
-            // Debug: Log prompt sizes
-            System.Diagnostics.Debug.WriteLine($"System prompt: {SystemPrompt.ReviewInstructions.Length} chars (~{SystemPrompt.ReviewInstructions.Length/4} tokens, CACHED)");
-            System.Diagnostics.Debug.WriteLine($"User prompt: {userPrompt.Length} chars (~{userPrompt.Length/4} tokens)");
-            System.Diagnostics.Debug.WriteLine($"Total estimated: ~{estimatedTokens} tokens");
+            // Log prompt sizes
+            _logger.LogDebug("System prompt: {SystemChars} chars (~{SystemTokens} tokens, CACHED)", 
+                SystemPrompt.ReviewInstructions.Length, SystemPrompt.ReviewInstructions.Length/4);
+            _logger.LogDebug("User prompt: {UserChars} chars (~{UserTokens} tokens)", 
+                userPrompt.Length, userPrompt.Length/4);
+            _logger.LogDebug("Total estimated: ~{TotalTokens} tokens", estimatedTokens);
             
             var messages = new List<ChatMessage>
             {
@@ -304,39 +409,38 @@ namespace AiReviewer.Shared.Services
                 new UserChatMessage(userPrompt)  // Dynamic per request
             };
 
-            System.Diagnostics.Debug.WriteLine($"Calling Azure OpenAI API...");
+            // Check for cancellation before making API call
+            cancellationToken.ThrowIfCancellationRequested();
+
+            _logger.LogDebug("Calling Azure OpenAI API...");
             var completion = await chatClient.CompleteChatAsync(messages, new ChatCompletionOptions
             {
                 Temperature = 0.3f,
                 MaxOutputTokenCount = 2000
-            });
+            }, cancellationToken);
 
             var reviewText = completion.Value.Content[0].Text;
-            System.Diagnostics.Debug.WriteLine($"API call completed successfully!");
+            _logger.LogDebug("API call completed successfully");
 
-            // DEBUG: Log AI response
-            System.Diagnostics.Debug.WriteLine($"AI Response Length: {reviewText?.Length ?? 0}");
-            if (reviewText != null && reviewText.Length > 0)
-            {
-                System.Diagnostics.Debug.WriteLine($"=== FULL AI RESPONSE ===");
-                System.Diagnostics.Debug.WriteLine(reviewText);
-                System.Diagnostics.Debug.WriteLine($"=== END AI RESPONSE ===");
-            }
+            // Log AI response
+            _logger.LogDebug("AI Response Length: {ResponseLength}", reviewText?.Length ?? 0);
+            _logger.LogTrace("Full AI Response: {Response}", reviewText);
 
             // Parse the AI response into structured results
             var results = ParseReviewResponse(reviewText, patches);
             
-            // DEBUG: Log parsing result
-            System.Diagnostics.Debug.WriteLine($"PASS 1: Parsed {results.Count} issues from AI response");
+            // Log parsing result
+            _logger.LogDebug("Parsed {IssueCount} issues from AI response", results.Count);
             if (results.Count == 0)
             {
-                System.Diagnostics.Debug.WriteLine($"WARNING: No issues parsed! Check if AI response format matches expected format.");
+                _logger.LogWarning("No issues parsed! Check if AI response format matches expected format");
             }
-            else
+            else if (_logger.IsEnabled(LogLevel.Trace))
             {
                 foreach (var r in results)
                 {
-                    System.Diagnostics.Debug.WriteLine($"  Issue: {r.FilePath}:{r.LineNumber} - {r.Severity} - {r.Issue}");
+                    _logger.LogTrace("  Issue: {FilePath}:{LineNumber} - {Severity} - {Issue}", 
+                        r.FilePath, r.LineNumber, r.Severity, r.Issue);
                 }
             }
             
@@ -346,17 +450,7 @@ namespace AiReviewer.Shared.Services
                 result.CodeSnippet = ExtractCodeSnippet(patches, result.FilePath, result.LineNumber);
             }
             
-            // PASS 2: Validate the fixes (commented this since it was filtering too aggressively result in bad review suggestion)
-            // if (results.Count > 0)
-            // {
-            //     System.Diagnostics.Debug.WriteLine($"=== STARTING PASS 2: VALIDATION ===");
-            //     var validatedResults = await ValidateFixesAsync(chatClient, results, patches);
-            //     System.Diagnostics.Debug.WriteLine($"PASS 2: {validatedResults.Count} issues validated (filtered {results.Count - validatedResults.Count} false positives)");
-            //     System.Diagnostics.Debug.WriteLine($"=== AI REVIEW END ===");
-            //     return validatedResults;
-            // }
-            
-            System.Diagnostics.Debug.WriteLine($"=== AI REVIEW END ===");
+            _logger.LogInformation("AI review complete: found {IssueCount} issues", results.Count);
             return results;
         }
         
@@ -567,127 +661,79 @@ namespace AiReviewer.Shared.Services
 
             return results;
         }
-
-        // Todo : For Better suggestion this check needs to be used before returning review results.
-        // Validate the suggested fixes by checking if they actually resolve the issues
-        private async Task<List<ReviewResult>> ValidateFixesAsync(ChatClient chatClient, List<ReviewResult> results, List<Patch> patches)
+        
+        /// <summary>
+        /// Merges direct standards with provided config.
+        /// Direct standards take priority, but config can provide overrides.
+        /// </summary>
+        private StagebotConfig MergeConfigs(StagebotConfig directStandards, StagebotConfig? providedConfig)
         {
-            var validatedResults = new List<ReviewResult>();
-            
-            // Build validation prompt
-            var sb = new StringBuilder();
-            sb.AppendLine("You are validating code review suggestions. Your job is to:");
-            sb.AppendLine("1. Verify the issue is real (not a false positive)");
-            sb.AppendLine("2. Check if the FIXEDCODE actually solves the problem");
-            sb.AppendLine("3. Ensure the fix doesn't introduce new issues");
-            sb.AppendLine();
-            sb.AppendLine("For each issue below, respond with ONLY:");
-            sb.AppendLine("VALID: YES or NO");
-            sb.AppendLine("REASON: Brief explanation");
-            sb.AppendLine("---");
-            sb.AppendLine();
-            sb.AppendLine("Review these issues:");
-            sb.AppendLine();
-            
-            int issueNum = 1;
-            foreach (var result in results)
+            // If no provided config, use direct standards as-is
+            if (providedConfig == null)
             {
-                // Only validate Medium and High confidence issues
-                if (result.Confidence != "Low")
-                {
-                    sb.AppendLine($"ISSUE #{issueNum}:");
-                    sb.AppendLine($"File: {result.FilePath}");
-                    sb.AppendLine($"Line: {result.LineNumber}");
-                    sb.AppendLine($"Severity: {result.Severity}");
-                    sb.AppendLine($"Confidence: {result.Confidence}");
-                    sb.AppendLine($"Problem: {result.Issue}");
-                    sb.AppendLine($"Original Code: {result.CodeSnippet}");
-                    sb.AppendLine($"Suggested Fix: {result.FixedCode}");
-                    sb.AppendLine($"Suggestion: {result.Suggestion}");
-                    sb.AppendLine();
-                    issueNum++;
-                }
+                return directStandards;
             }
             
-            var validationMessages = new List<ChatMessage>
+            // Create merged config starting from direct standards
+            var merged = new StagebotConfig
             {
-                new SystemChatMessage("You are a validation expert. Be critical and strict - reject false positives and ineffective fixes."),
-                new UserChatMessage(sb.ToString())
+                Version = directStandards.Version,
+                Checks = directStandards.Checks?.ToList() ?? new List<AiReviewer.Shared.Models.Check>(),
+                PrChecks = directStandards.PrChecks?.ToList() ?? new List<AiReviewer.Shared.Models.PrCheck>(),
+                IncludePaths = directStandards.IncludePaths?.ToList() ?? new List<string>(),
+                ExcludePaths = directStandards.ExcludePaths?.ToList() ?? new List<string>(),
+                InheritCentralStandards = providedConfig.InheritCentralStandards
             };
-
-            System.Diagnostics.Debug.WriteLine($"Validation prompt length: {sb.Length} chars");
-            System.Diagnostics.Debug.WriteLine($"Calling validation API...");
             
-            var validationCompletion = await chatClient.CompleteChatAsync(validationMessages, new ChatCompletionOptions
+            // Add any custom checks from provided config
+            if (providedConfig.Checks != null)
             {
-                Temperature = 0.1f,  // Lower temperature for more consistent validation
-                MaxOutputTokenCount = 1500
-            });
-
-            var validationText = validationCompletion.Value.Content[0].Text;
-            System.Diagnostics.Debug.WriteLine($"=== VALIDATION RESPONSE ===");
-            System.Diagnostics.Debug.WriteLine(validationText);
-            System.Diagnostics.Debug.WriteLine($"=== END VALIDATION ===");
-            
-            // Parse validation response
-            var validationLines = validationText.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-            bool? currentValid = null;
-            string currentReason = "";
-            int resultIndex = 0;
-            
-            foreach (var line in validationLines)
-            {
-                var trimmed = line.Trim();
-                
-                if (trimmed.StartsWith("VALID:", StringComparison.OrdinalIgnoreCase))
+                foreach (var check in providedConfig.Checks)
                 {
-                    var validStr = trimmed.Substring(6).Trim().ToUpperInvariant();
-                    currentValid = validStr.Contains("YES");
-                }
-                else if (trimmed.StartsWith("REASON:", StringComparison.OrdinalIgnoreCase))
-                {
-                    currentReason = trimmed.Substring(7).Trim();
-                }
-                else if (trimmed == "---" && currentValid.HasValue)
-                {
-                    // Find the corresponding result (skip Low confidence ones)
-                    while (resultIndex < results.Count && results[resultIndex].Confidence == "Low")
+                    // Add check if not already present (by Id)
+                    if (!merged.Checks.Any(c => c.Id == check.Id))
                     {
-                        // Auto-accept Low confidence issues (they're informational)
-                        validatedResults.Add(results[resultIndex]);
-                        resultIndex++;
+                        merged.Checks.Add(check);
                     }
-                    
-                    if (resultIndex < results.Count)
-                    {
-                        if (currentValid.Value)
-                        {
-                            validatedResults.Add(results[resultIndex]);
-                            System.Diagnostics.Debug.WriteLine($"✓ VALIDATED: {results[resultIndex].FilePath}:{results[resultIndex].LineNumber} - {currentReason}");
-                        }
-                        else
-                        {
-                            System.Diagnostics.Debug.WriteLine($"✗ REJECTED: {results[resultIndex].FilePath}:{results[resultIndex].LineNumber} - {currentReason}");
-                        }
-                        resultIndex++;
-                    }
-                    
-                    currentValid = null;
-                    currentReason = "";
                 }
             }
             
-            // Add any remaining Low confidence issues
-            while (resultIndex < results.Count)
+            // Merge PR checks
+            if (providedConfig.PrChecks != null)
             {
-                if (results[resultIndex].Confidence == "Low")
+                foreach (var prCheck in providedConfig.PrChecks)
                 {
-                    validatedResults.Add(results[resultIndex]);
+                    if (!merged.PrChecks.Any(c => c.Id == prCheck.Id))
+                    {
+                        merged.PrChecks.Add(prCheck);
+                    }
                 }
-                resultIndex++;
             }
             
-            return validatedResults;
+            // Merge include/exclude paths
+            if (providedConfig.IncludePaths != null)
+            {
+                foreach (var path in providedConfig.IncludePaths)
+                {
+                    if (!merged.IncludePaths.Contains(path))
+                    {
+                        merged.IncludePaths.Add(path);
+                    }
+                }
+            }
+            
+            if (providedConfig.ExcludePaths != null)
+            {
+                foreach (var path in providedConfig.ExcludePaths)
+                {
+                    if (!merged.ExcludePaths.Contains(path))
+                    {
+                        merged.ExcludePaths.Add(path);
+                    }
+                }
+            }
+            
+            return merged;
         }
     }
 }
